@@ -22,5 +22,5 @@
     ```bash 
     pip install -r requirements.txt 
     ```
-3. Follow Systemd [README](https://github.com/systemd/README.md)
+3. Follow Systemd [README](systemd/README.md)
 
