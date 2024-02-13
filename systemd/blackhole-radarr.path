@@ -1,0 +1,11 @@
+[Unit]
+    Description=Blackhole Radarr Path
+    Wants=network-online.target
+    After=network-online.target
+
+[Path]
+    PathExistsGlob=%h/path/to/radarr/blackhole/torrent/folder/*.{[Tt][Oo][Rr][Rr][Ee][Nn][Tt],[Mm][Aa][Gg][Nn][Ee][Tt]}
+    Unit=blackhole@radarr.service
+
+[Install]
+    WantedBy=default.target

@@ -1,0 +1,11 @@
+[Unit]
+    Description=Blackhole Sonarr Path
+    Wants=network-online.target
+    After=network-online.target
+
+[Path]
+    PathExistsGlob=%h/path/to/sonarr/blackhole/torrent/folder/*.{[Tt][Oo][Rr][Rr][Ee][Nn][Tt],[Mm][Aa][Gg][Nn][Ee][Tt]}
+    Unit=blackhole@sonarr.service
+
+[Install]
+    WantedBy=default.target
