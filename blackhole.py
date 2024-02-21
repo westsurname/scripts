@@ -9,6 +9,7 @@ import requests
 import asyncio
 import bencode3
 from datetime import datetime
+# import urllib
 from werkzeug.utils import cached_property
 from abc import ABC, abstractmethod
 from shared.discord import discordError, discordUpdate
@@ -62,9 +63,11 @@ class TorrentBase(ABC):
         self.fail = fail
         self.failIfNotCached = failIfNotCached
         self.onlyLargestFile = onlyLargestFile
+        self.id = None
         self._info = None
         self._instantAvailability = None
         self._hash = None
+        self.incompatibleHashSize = False
     
     def print(self, *values: object):
             print(f"[{self.file.fileInfo.filenameWithoutExt}]", *values)
@@ -101,6 +104,11 @@ class TorrentBase(ABC):
         if refresh or not self._instantAvailability:
             torrentHash = self.getHash()
             self.print('hash:', torrentHash)
+
+            if len(torrentHash) != 40:
+                self.incompatibleHashSize = True
+                return True
+
             instantAvailabilityRequest = requests.get(f"{rdHost}torrents/instantAvailability/{torrentHash}?auth_token={authToken}")
             instantAvailabilities = instantAvailabilityRequest.json()
             self.print('instantAvailabilities:', instantAvailabilities)
@@ -132,21 +140,23 @@ class TorrentBase(ABC):
         info = self.getInfo()
         self.print('files:', info['files'])
         mediaFiles = [file for file in info['files'] if os.path.splitext(file['path'])[1] in mediaExtensions]
-        mediaFileIds = [str(file['id']) for file in mediaFiles]
+        mediaFileIds = {str(file['id']) for file in mediaFiles}
         self.print('required fileIds:', mediaFileIds)
         
         largestMediaFile = max(mediaFiles, key=lambda file: file['bytes'])
         largestMediaFileId = str(largestMediaFile['id'])
+        self.print('only largest file:', self.onlyLargestFile)
         self.print('largest file:', largestMediaFile)
         if self.onlyLargestFile and len(mediaFiles) > 1:
             discordUpdate('largest file:', largestMediaFile['path'])
 
-        if self.failIfNotCached:
-            availableFileIds = set(fileId for fileGroup in self._instantAvailability for fileId in fileGroup.keys())
-            self.print('available fileIds:', sorted(availableFileIds))
-            
-            if ((self.onlyLargestFile and largestMediaFileId not in availableFileIds) or 
-                (not self.onlyLargestFile and not all(mediaFileId in availableFileIds for mediaFileId in mediaFileIds))):
+        if self.failIfNotCached and not self.incompatibleHashSize:
+            targetFileIds = {largestMediaFileId} if self.onlyLargestFile else mediaFileIds
+            if not any(set(fileGroup.keys()) == targetFileIds for fileGroup in self._instantAvailability):
+                extraFilesGroup = next(fileGroup for fileGroup in self._instantAvailability if largestMediaFileId in fileGroup.keys())
+                if self.onlyLargestFile and extraFilesGroup:
+                    self.print('extra files required for cache:', extraFilesGroup)
+                    discordUpdate('Extra files required for cache:', extraFilesGroup)
                 return False
                 
         files = {'files': [largestMediaFileId] if self.onlyLargestFile else ','.join(mediaFileIds)}
@@ -174,8 +184,10 @@ class Torrent(TorrentBase):
 
     def addTorrent(self, host):
         addTorrentRequest = requests.put(f"{rdHost}torrents/addTorrent?host={host}&auth_token={authToken}", data=self.f)
-        self.id = addTorrentRequest.json()['id']
-
+        addTorrentResponse = addTorrentRequest.json()
+        self.print('torrent info:', addTorrentResponse)
+        
+        self.id = addTorrentResponse['id']
         return self.id
 
 
@@ -190,7 +202,10 @@ class Magnet(TorrentBase):
     
     def addTorrent(self, host):
         addMagnetRequest = requests.post(f"{rdHost}torrents/addMagnet?host={host}&auth_token={authToken}", data={'magnet': self.fileData})
-        self.id = addMagnetRequest.json()['id']
+        addMagnetResponse = addMagnetRequest.json()
+        self.print('magnet info:', addMagnetResponse)
+        
+        self.id = addMagnetResponse['id']
 
         return self.id
 
@@ -283,10 +298,11 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                     # TODO: See if we can fail without blacklisting as cached items constantly changes
                     arr.failHistoryItem(item['id'])
 
+            onlyLargestFile = isRadarr or bool(re.search(r'S[\d]{2}E[\d]{2}', file.fileInfo.filename))
             if file.torrentInfo.isDotTorrentFile:
-                torrent = Torrent(f, file, fail, blackhole['failIfNotCached'], isRadarr)
+                torrent = Torrent(f, file, fail, blackhole['failIfNotCached'], onlyLargestFile)
             else:
-                torrent = Magnet(f, file, fail, blackhole['failIfNotCached'], isRadarr)
+                torrent = Magnet(f, file, fail, blackhole['failIfNotCached'], onlyLargestFile)
             
             if torrent.submitTorrent():
                 count = 0
@@ -305,6 +321,11 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                         # Send progress to arr
                         progress = info['progress']
                         print(progress)
+                        if torrent.incompatibleHashSize:
+                            print("Non-cached incompatible hash sized torrent")
+                            torrent.delete()
+                            fail(torrent)
+                            break
                         await asyncio.sleep(1)
                     elif status == 'magnet_error' or status == 'error' or status == 'dead' or status == 'virus':
                         fail(torrent)
@@ -346,6 +367,9 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                                                 os.makedirs(os.path.join(seasonFolderPathCompleted, relRoot), exist_ok=True)
                                                 os.symlink(os.path.join(root, filename), os.path.join(seasonFolderPathCompleted, relRoot, filename))
                                                 print('Season Recursive:', f"{os.path.join(seasonFolderPathCompleted, relRoot, filename)} -> {os.path.join(root, filename)}")
+                                                # refreshEndpoint = f"{plex['serverHost']}/library/sections/{plex['serverMovieLibraryId'] if isRadarr else plex['serverTvShowLibraryId']}/refresh?path={urllib.parse.quote_plus(os.path.join(seasonFolderPathCompleted, relRoot))}&X-Plex-Token={plex['serverApiKey']}"
+                                                # cancelRefreshRequest = requests.delete(refreshEndpoint, headers={'Accept': 'application/json'})
+                                                # refreshRequest = requests.get(refreshEndpoint, headers={'Accept': 'application/json'})
 
                                                 continue
 
@@ -353,10 +377,13 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                                         os.makedirs(os.path.join(file.fileInfo.folderPathCompleted, relRoot), exist_ok=True)
                                         os.symlink(os.path.join(root, filename), os.path.join(file.fileInfo.folderPathCompleted, relRoot, filename))
                                         print('Recursive:', f"{os.path.join(file.fileInfo.folderPathCompleted, relRoot, filename)} -> {os.path.join(root, filename)}")
+                                        # refreshEndpoint = f"{plex['serverHost']}/library/sections/{plex['serverMovieLibraryId'] if isRadarr else plex['serverTvShowLibraryId']}/refresh?path={urllib.parse.quote_plus(os.path.join(file.fileInfo.folderPathCompleted, relRoot))}&X-Plex-Token={plex['serverApiKey']}"
+                                        # cancelRefreshRequest = requests.delete(refreshEndpoint, headers={'Accept': 'application/json'})
+                                        # refreshRequest = requests.get(refreshEndpoint, headers={'Accept': 'application/json'})
                                 
-                                refreshEndpoint = f"{plex['serverHost']}/library/sections/{plex['serverMovieLibraryId'] if isRadarr else plex['serverTvShowLibraryId']}/refresh?X-Plex-Token={plex['serverApiKey']}"
-                                cancelRefreshRequest = requests.delete(refreshEndpoint, headers={'Accept': 'application/json'})
-                                refreshRequest = requests.get(refreshEndpoint, headers={'Accept': 'application/json'})
+                                # refreshEndpoint = f"{plex['serverHost']}/library/sections/{plex['serverMovieLibraryId'] if isRadarr else plex['serverTvShowLibraryId']}/refresh?X-Plex-Token={plex['serverApiKey']}"
+                                # cancelRefreshRequest = requests.delete(refreshEndpoint, headers={'Accept': 'application/json'})
+                                # refreshRequest = requests.get(refreshEndpoint, headers={'Accept': 'application/json'})
                                 arr.refreshMonitoredDownloads()
 
                                 print('Refreshed')
