@@ -136,3 +136,19 @@ mediaExtensions = [
     ".m2ts",
     ".webm" 
 ]
+
+def intersperse(arr1, arr2):
+    i, j = 0, 0
+    while i < len(arr1) and j < len(arr2):
+        yield arr1[i]
+        yield arr2[j]
+        i += 1
+        j += 1
+    
+    while i < len(arr1):
+        yield arr1[i]
+        i += 1
+    
+    while j < len(arr2):
+        yield arr2[j]
+        j += 1
