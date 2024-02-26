@@ -71,6 +71,8 @@ pushbullet = {
 }
 
 discord = {
+    'enabled': env.bool('DISCORD_ENABLED'),
+    'updateEnabled': env.bool('DISCORD_UPDATE_ENABLED'),
     'webhookUrl': os.getenv('DISCORD_WEBHOOK_URL')
 }
 

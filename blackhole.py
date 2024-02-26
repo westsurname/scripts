@@ -13,7 +13,7 @@ from datetime import datetime
 from werkzeug.utils import cached_property
 from abc import ABC, abstractmethod
 from shared.discord import discordError, discordUpdate
-from shared.shared import pushbullet, realdebrid, blackhole, plex, mediaExtensions
+from shared.shared import realdebrid, blackhole, plex, mediaExtensions
 from shared.arr import Arr, Radarr, Sonarr
 
 rdHost = realdebrid['host']
@@ -210,7 +210,9 @@ class Magnet(TorrentBase):
         return self.id
 
 def getPath(isRadarr):
-    return os.path.join(blackhole['baseWatchPath'], blackhole['radarrPath'] if isRadarr else blackhole['sonarrPath'])
+    baseWatchPath = blackhole['baseWatchPath']
+    absoluteBaseWatchPath = baseWatchPath if os.path.isabs(baseWatchPath) else os.path.abspath(baseWatchPath)
+    return os.path.join(absoluteBaseWatchPath, blackhole['radarrPath'] if isRadarr else blackhole['sonarrPath'])
 
 # From Radarr Radarr/src/NzbDrone.Core/Organizer/FileNameBuilder.cs
 def cleanFileName(name):
@@ -286,7 +288,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
 
         with open(file.fileInfo.filePathProcessing, 'rb' if file.torrentInfo.isDotTorrentFile else 'r') as f:
             def fail(torrent: TorrentBase, arr: Arr=arr):
-                print(f"Failed")
+                print(f"Failing")
 
                 history = arr.getHistory(blackhole['historyPageSize'])['records']
                 items = (item for item in history if item['data'].get('torrentInfoHash', '').casefold() == torrent.getHash().casefold() or cleanFileName(item['sourceTitle'].casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold())
@@ -297,6 +299,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                 for item in items:
                     # TODO: See if we can fail without blacklisting as cached items constantly changes
                     arr.failHistoryItem(item['id'])
+                print(f"Failed")
 
             onlyLargestFile = isRadarr or bool(re.search(r'S[\d]{2}E[\d]{2}', file.fileInfo.filename))
             if file.torrentInfo.isDotTorrentFile:
