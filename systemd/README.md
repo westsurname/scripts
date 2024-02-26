@@ -19,13 +19,13 @@ Start the services using the following commands:
 - For Sonarr:
 
     ```bash
-    systemctl start blackhole@sonarr.service
+    systemctl start blackhole-sonarr.path
     ```
 
 - For Radarr:
 
     ```bash
-    systemctl start blackhole@radarr.service
+    systemctl start blackhole-radarr.path
     ```
 
 Enable the services to start on boot:
@@ -33,13 +33,13 @@ Enable the services to start on boot:
 - For Sonarr:
 
     ```bash
-    systemctl enable blackhole@sonarr.service
+    systemctl enable blackhole-sonarr.path
     ```
 
 - For Radarr:
 
     ```bash
-    systemctl enable blackhole@radarr.service
+    systemctl enable blackhole-radarr.path
     ```
 
 Note: Depending on your system setup, you may need to add `sudo` or `--user` to systemd commands.
