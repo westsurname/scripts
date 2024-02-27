@@ -35,9 +35,6 @@
 
 1. Add torrent blackhole download clients to the arrs.
 
-2. Follow Systemd [README](systemd/README.md)
-
-
 ## Import Torrent Folder
 
 ### Usage
