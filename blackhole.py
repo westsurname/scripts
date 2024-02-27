@@ -424,12 +424,10 @@ def getFiles(isRadarr):
     files = (TorrentFileInfo(filename, isRadarr) for filename in os.listdir(getPath(isRadarr)) if filename not in ['processing', 'completed'])
     return [file for file in files if file.torrentInfo.isTorrentOrMagnet]
 
-async def on_created():
+async def on_created(isRadarr):
     print("Enter 'on_created'")
     try:
         print('radarr/sonarr:', sys.argv[1])
-
-        isRadarr = sys.argv[1] == 'radarr'
 
         if isRadarr:
             arr = Radarr()
@@ -461,4 +459,8 @@ async def on_created():
         discordError(f"Error processing", e)
     print("Exit 'on_created'")
 
-asyncio.run(on_created())
+def start(isRadarr):
+    asyncio.run(on_created(isRadarr))
+
+if __name__ == "__main__":
+    start(isRadarr=sys.argv[1] == 'radarr')
