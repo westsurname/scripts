@@ -5,10 +5,13 @@ services:
     build:
       context: .
       args:
-        BLACKHOLE_RD_MOUNT_TORRENTS_PATH: ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
+        BLACKHOLE_RD_MOUNT_TORRENTS_PATH_HOST: ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
+        BLACKHOLE_RD_MOUNT_TORRENTS_PATH: /app/torrent-mount
     container_name: blackhole_service
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH_HOST}:${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
+      - ./blackhole:/app/blackhole
     security_opt:
       - seccomp:unconfined
     cap_add:

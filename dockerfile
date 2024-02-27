@@ -1,7 +1,8 @@
 FROM python:3.8-slim
 
-# Define build-time variable
-ARG BLACKHOLE_RD_MOUNT_TORRENTS_PATH
+# Define build-time variable and set environment variable
+ARG BLACKHOLE_RD_MOUNT_TORRENTS_PATH_HOST
+ENV BLACKHOLE_RD_MOUNT_TORRENTS_PATH=$BLACKHOLE_RD_MOUNT_TORRENTS_PATH_HOST
 
 # Install systemd and other utilities
 RUN apt-get update && apt-get install -y systemd systemd-sysv && rm -rf /var/lib/apt/lists/*
@@ -21,17 +22,17 @@ RUN rm -rf /app/systemd
 # Install Python dependencies
 RUN pip install -r /app/requirements.txt
 
-# Replace placeholder in blackhole@.service with actual path before copying
-RUN sed -i 's|%h/scripts|/app|g' blackhole@.service && \
-    COPY blackhole@.service /etc/systemd/system/blackhole@.service
+# Copy and then replace placeholder in blackhole@.service with actual path
+COPY systemd/blackhole@.service /etc/systemd/system/blackhole@.service
+RUN sed -i 's|%h/scripts|/app|g' /etc/systemd/system/blackhole@.service
 
-# Replace placeholder in blackhole-radarr.path with actual path before copying
-RUN sed -i 's|%h/path/to/radarr/blackhole/torrent/folder|'"${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}"'|g' blackhole-radarr.path && \
-    COPY blackhole-radarr.path /etc/systemd/system/blackhole-radarr.path
+# Copy and then replace placeholder in blackhole-radarr.path with actual path
+COPY systemd/blackhole-radarr.path /etc/systemd/system/blackhole-radarr.path
+RUN sed -i 's|%h/path/to/radarr/blackhole/torrent/folder|'"${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}"'|g' /etc/systemd/system/blackhole-radarr.path
 
-# Replace placeholder in blackhole-sonarr.path with actual path before copying
-RUN sed -i 's|%h/path/to/sonarr/blackhole/torrent/folder|'"${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}"'|g' blackhole-sonarr.path && \
-    COPY blackhole-sonarr.path /etc/systemd/system/blackhole-sonarr.path
+# Copy and then replace placeholder in blackhole-sonarr.path with actual path
+COPY systemd/blackhole-sonarr.path /etc/systemd/system/blackhole-sonarr.path
+RUN sed -i 's|%h/path/to/sonarr/blackhole/torrent/folder|'"${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}"'|g' /etc/systemd/system/blackhole-sonarr.path
 
 # Set working directory
 WORKDIR /app
