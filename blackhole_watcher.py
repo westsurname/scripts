@@ -18,8 +18,8 @@ class BlackholeHandler(FileSystemEventHandler):
                 self.is_processing = False
 
 if __name__ == "__main__":
-    radarr_handler = BlackholeHandler(isRadarr=True)
-    sonarr_handler = BlackholeHandler(isRadarr=False)
+    radarr_handler = BlackholeHandler(is_radarr=True)
+    sonarr_handler = BlackholeHandler(is_radarr=False)
 
     radarr_observer = Observer()
     radarr_observer.schedule(radarr_handler, radarr_handler.path_name)
