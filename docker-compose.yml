@@ -5,12 +5,12 @@ services:
     build:
       context: .
       args:
-        BLACKHOLE_RD_MOUNT_TORRENTS_PATH_HOST: ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
+      #   BLACKHOLE_RD_MOUNT_TORRENTS_PATH_HOST: ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
         BLACKHOLE_RD_MOUNT_TORRENTS_PATH: /app/torrent-mount
     container_name: blackhole_service
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
-      - ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH_HOST}:${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
+      - ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}:/app/torrent-mount
       - ./blackhole:/app/blackhole
     security_opt:
       - seccomp:unconfined
@@ -18,4 +18,7 @@ services:
       - SYS_ADMIN
     env_file:
       - .env
-    restart: unless-stopped
+    # environment:
+      # - BLACKHOLE_RD_MOUNT_TORRENTS_PATH_HOST=${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
+      # - BLACKHOLE_RD_MOUNT_TORRENTS_PATH=/app/torrent-mount
+    # restart: unless-stopped
