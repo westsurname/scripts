@@ -427,7 +427,7 @@ def getFiles(isRadarr):
 async def on_created(isRadarr):
     print("Enter 'on_created'")
     try:
-        print('radarr/sonarr:', sys.argv[1])
+        print('radarr/sonarr:', 'radarr' if isRadarr else 'sonarr')
 
         if isRadarr:
             arr = Radarr()
