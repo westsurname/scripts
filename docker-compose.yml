@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  blackhole:
+    build:
+      context: .
+      args:
+        BLACKHOLE_RD_MOUNT_TORRENTS_PATH: ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
+    container_name: blackhole_service
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - SYS_ADMIN
+    env_file:
+      - .env
+    restart: unless-stopped
