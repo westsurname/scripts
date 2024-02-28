@@ -44,11 +44,11 @@
      - `OVERSEERR_HOST`: The host address of your Overseeer instance.
      - `OVERSEERR_API_KEY`: The API key for accessing Overseeer.
 
-   - **Sonarr**:
+   - **Sonarr** - Blackhole:
      - `SONARR_HOST`: The host address of your Sonarr instance.
      - `SONARR_API_KEY`: The API key for accessing Sonarr.
 
-   - **Radarr**:
+   - **Radarr** - Blackhole:
      - `RADARR_HOST`: The host address of your Radarr instance.
      - `RADARR_API_KEY`: The API key for accessing Radarr.
 
@@ -102,6 +102,12 @@
    - **Client Priority**: Prioritize as you please
    - **Tags**: Tag as you please
    - **Completed Download Handling**: Remove Completed
+
+3. Run the `python_watcher.py` script to start monitoring the blackhole:
+
+    ```bash
+    python3 python_watcher.py
+    ```
 
 ## Import Torrent Folder
 
