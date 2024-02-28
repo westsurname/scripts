@@ -7,14 +7,14 @@ from shared.shared import blackhole
 def find_non_linked_files(src_folder, dst_folder, dry_run=False, no_confirm=False, only_delete_files=False):
     # Get the list of links in the dst_folder
     dst_links = set()
-    for root, dirs, files in os.walk(dst_folder):
+    for root, dirs, files in os.walk(dst_folder, followlinks=True):
         for file in files:
             dst_path = os.path.join(root, file)
             if os.path.islink(dst_path):
                 dst_links.add(os.path.realpath(dst_path))
 
     # Check for non-linked files in the src_folder
-    for root, dirs, files in os.walk(src_folder):
+    for root, dirs, files in os.walk(src_folder, followlinks=True):
         # Get the subdirectory of the current root, relative to the src_folder
         subdirectory = os.path.relpath(root, src_folder)
         subdirectory_any_linked_files = False
