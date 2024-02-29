@@ -1,8 +1,0 @@
-[Unit]
-    Description=Blackhole Template
-
-[Service]
-    WorkingDirectory=%h/scripts
-    Environment="PATH=$HOME/scripts"
-    ExecStart=/usr/bin/python3 -u %h/scripts/blackhole.py %I
-    StandardOutput=append:%h/scripts/logs/blackhole.log

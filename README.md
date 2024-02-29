@@ -25,18 +25,92 @@
     ```bash 
     pip install -r requirements.txt 
     ```
+4. Copy `.env.template` to `.env` and populate the (applicable) variables:
 
-4. Copy `.env.template` to `.env` and populate the (applicable) variables.
+   - **Server** - Plex Authentication:
+     - `SERVER_DOMAIN`: The domain name of your server.
+
+   - **Plex** - Watchlist, Plex Authentication:
+     - `PLEX_HOST`: The URL to general Plex services.
+     - `PLEX_METADATA_HOST`: The URL to the Plex metadata service.
+     - `PLEX_SERVER_HOST`: The host address of your Plex server.
+     - `PLEX_SERVER_MACHINE_ID`: The unique machine identifier for your Plex server.
+     - `PLEX_SERVER_API_KEY`: Your Plex server's API key for authentication.
+     - `PLEX_SERVER_MOVIE_LIBRARY_ID`: The library ID for movies on your Plex server.
+     - `PLEX_SERVER_TV_SHOW_LIBRARY_ID`: The library ID for TV shows on your Plex server.
+
+   - **Overseerr** - Watchlist, Plex Authentication:
+     - `OVERSEERR_HOST`: The host address of your Overseeer instance.
+     - `OVERSEERR_API_KEY`: The API key for accessing Overseeer.
+
+   - **Sonarr** - Blackhole, Repair:
+     - `SONARR_HOST`: The host address of your Sonarr instance.
+     - `SONARR_API_KEY`: The API key for accessing Sonarr.
+
+   - **Radarr** - Blackhole, Repair:
+     - `RADARR_HOST`: The host address of your Radarr instance.
+     - `RADARR_API_KEY`: The API key for accessing Radarr.
+
+   - **Tautulli**
+     - `TAUTULLI_HOST`: The host address of your Tautulli instance.
+     - `TAUTULLI_API_KEY`: The API key for accessing Tautulli.
+
+   - **RealDebrid** - Blackhole:
+     - `REALDEBRID_HOST`: The host address for the RealDebrid API.
+     - `REALDEBRID_API_KEY`: The API key for accessing RealDebrid services.
+
+   - **Trakt**
+     - `TRAKT_API_KEY`: The API key for integrating with Trakt.
+
+   - **Pushbullet**
+     - `PUSHBULLET_API_KEY`: The API key for sending notifications via Pushbullet.
+
+   - **Watchlist** - Watchlist:
+     - `WATCHLIST_PLEX_PRODUCT`: Identifier for the Plex product used in watchlists.
+     - `WATCHLIST_PLEX_VERSION`: The version of the Plex product used.
+     - `WATCHLIST_PLEX_CLIENT_IDENTIFIER`: A unique identifier for the Plex client.
+
+   - **Blackhole** - Blackhole:
+     - `BLACKHOLE_BASE_WATCH_PATH`: The base path for watched folders by the blackhole mechanism. Can be relative or absolute.
+     - `BLACKHOLE_RADARR_PATH`: The path where torrent files will be dropped into by Radarr, relative to the base path.
+     - `BLACKHOLE_SONARR_PATH`: The path where torrent files will be dropped into by Sonarr, relative to the base path.
+     - `BLACKHOLE_FAIL_IF_NOT_CACHED`: Whether to fail operations if content is not cached.
+     - `BLACKHOLE_RD_MOUNT_REFRESH_SECONDS`: How long to wait for the RealDebrid mount to refresh in seconds.
+     - `BLACKHOLE_RD_MOUNT_TORRENTS_PATH`: The path to the RealDebrid mounted torrents.
+     - `BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT`: The timeout in seconds to wait for a torrent to be successful before failing.
+     - `BLACKHOLE_HISTORY_PAGE_SIZE`: The number of history items to pull at once when attempting to mark a download as failed.
+
+   - **Discord** - Blackhole, Watchlist, Plex Authentication:
+     - `DISCORD_ENABLED`: Set to `true` to enable Discord error notifications.
+     - `DISCORD_UPDATE_ENABLED`: Set to `true` to enable update notifications as well on Discord.
+     - `DISCORD_WEBHOOK_URL`: The Discord webhook URL for sending notifications.
+
+   - **General Configuration**
+    - `PYTHONUNBUFFERED`: Set to `TRUE` to ensure Python output is displayed in the logs in real-time.
 
 
 ## Blackhole
 
 ### Setup
 
-1. Add torrent blackhole download clients to the arrs.
+1. Within the arrs, navigate to `Settings > Download Clients` and add a `Torrent Blackhole` client.
 
-2. Follow Systemd [README](systemd/README.md)
+2. Configure the torrent blackhole download client as follows:
+   - **Name**: `blackhole`
+   - **Enable**: Yes
+   - **Torrent Folder**: Set to `[BLACKHOLE_BASE_WATCH_PATH]/[BLACKHOLE_RADARR_PATH]` for Radarr or `[BLACKHOLE_BASE_WATCH_PATH]/[BLACKHOLE_SONARR_PATH]` for Sonarr
+   - **Watch Folder**: Set to `[Torrent Folder]/completed`
+   - **Save Magnet Files**: Yes, with the extension `.magnet`
+   - **Read Only**: No
+   - **Client Priority**: Prioritize as you please
+   - **Tags**: Tag as you please
+   - **Completed Download Handling**: Remove Completed
 
+3. Run the `python_watcher.py` script to start monitoring the blackhole:
+
+    ```bash
+    python3 python_watcher.py
+    ```
 
 ## Import Torrent Folder
 

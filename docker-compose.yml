@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  blackhole:
+    build: 
+      context: .
+      dockerfile: Dockerfile.blackhole
+      # args:
+      #   BLACKHOLE_RD_MOUNT_TORRENTS_PATH_HOST: ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
+        # BLACKHOLE_RD_MOUNT_TORRENTS_PATH: /app/torrent-mount
+    container_name: blackhole_service
+    volumes:
+      - ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}:/app/torrent-mount
+      - ./blackhole/${BLACKHOLE_RADARR_PATH}:/app/blackhole/${BLACKHOLE_RADARR_PATH}
+      - ./blackhole/${BLACKHOLE_SONARR_PATH}:/app/blackhole/${BLACKHOLE_SONARR_PATH}
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    environment:
+      # - BLACKHOLE_RD_MOUNT_TORRENTS_PATH_HOST=${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
+      - BLACKHOLE_RD_MOUNT_TORRENTS_PATH=/app/torrent-mount
+    restart: unless-stopped
+    profiles: [blackhole, all]
+
+  watchlist:
+    build: 
+      context: .
+      dockerfile: Dockerfile.watchlist
+    container_name: watchlist_service
+    env_file:
+      - .env
+    restart: unless-stopped
+    profiles: [watchlist, all]
+
+  plex_authentication:
+    build: 
+      context: .
+      dockerfile: Dockerfile.plex_authentication
+    container_name: plex_authentication_service
+    ports:
+      - 8000:8000
+    env_file:
+      - .env
+    environment:
+      - SERVER_DOMAIN=${SERVER_DOMAIN}:8000
+    restart: unless-stopped
+    profiles: [plex_authentication, all]
+

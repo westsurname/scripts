@@ -161,3 +161,9 @@ cython_debug/
 
 # Logs
 logs/blackhole.log
+
+# Torrents
+blackhole/
+
+# Tokens
+shared/tokens.json
