@@ -123,117 +123,121 @@ def getWatchlistedAt(ratingKey, headers):
     
     return watchlistedAt
 
-print()
-print(datetime.datetime.now())
-print('Running Watchlist')
+def run():
+    print()
+    print(datetime.datetime.now())
+    print('Running Watchlist')
 
-with open(tokensFilename, 'r') as tokensFile:
-    tokens = json.load(tokensFile)
+    with open(tokensFilename, 'r') as tokensFile:
+        tokens = json.load(tokensFile)
 
-for userId, token in tokens.items():
-    try:
-        headers = {
-            **plexHeaders,
-            'X-Plex-Token': token['token']
-        }
+    for userId, token in tokens.items():
+        try:
+            headers = {
+                **plexHeaders,
+                'X-Plex-Token': token['token']
+            }
 
-        def requestWatchlist(tryAgain=True):
-            try:
-                return requests.get(
-                f"{metadataHost}library/sections/watchlist/all?includeFields=ratingKey%2CwatchlistedAt&sort=watchlistedAt%3Adesc",
-                headers={
-                    **headers,
-                    'If-None-Match': token['etag'],
-                })   
-            except:
-                if tryAgain:
-                    return requestWatchlist(tryAgain=False)
+            def requestWatchlist(tryAgain=True):
+                try:
+                    return requests.get(
+                    f"{metadataHost}library/sections/watchlist/all?includeFields=ratingKey%2CwatchlistedAt&sort=watchlistedAt%3Adesc",
+                    headers={
+                        **headers,
+                        'If-None-Match': token['etag'],
+                    })   
+                except:
+                    if tryAgain:
+                        return requestWatchlist(tryAgain=False)
+                    else:
+                        raise
+
+            watchlistRequest = requestWatchlist()
+
+            if watchlistRequest.status_code == 401:
+                print(f"UserId {userId} no longer authenticated")
+                discordError(f"UserId {userId} no longer authenticated")
+                continue
+
+            if watchlistRequest.status_code == 304:
+                print(f"No changes for userId {userId}")
+                continue
+
+            if watchlistRequest.status_code != 200:
+                print(watchlistRequest)
+                print(watchlistRequest.url)
+                continue
+
+            etag = watchlistRequest.headers['etag']
+
+            now = datetime.datetime.now()
+            recentlyProcessedItems = token.get('recentlyProcessedItems', [])
+
+            watchlist = watchlistRequest.json()['MediaContainer']
+
+            if not 'Metadata' in watchlist:
+                continue
+
+            watchlistItems = watchlist['Metadata']
+
+            recentWatchlist = []
+            newRecentlyProcessedItems = []
+
+            for item in watchlistItems:
+                try:
+                    watchlistedAt = datetime.datetime.fromtimestamp(item['watchlistedAt'])
+                    discordUpdate('Watchlist has resumed functioning')
+                except:
+                    ratingKey = item['ratingKey']
+                    watchlistedAtTimestamp = getWatchlistedAt(ratingKey, headers)
+
+                    if not watchlistedAtTimestamp:
+                        print(f"No watchlisted timestamp for RatingKey {ratingKey} and UserId {userId}")
+                        discordError(f"No watchlisted timestamp for RatingKey {ratingKey} and UserId {userId}")
+                        continue
+
+                    watchlistedAt = datetime.datetime.fromtimestamp(watchlistedAtTimestamp)
+                    item['watchlistedAt'] = watchlistedAtTimestamp
+
+                if now - watchlistedAt < datetime.timedelta(hours=1):
+                    recentItem = buildRecentItem(item)
+                    newRecentlyProcessedItems.append(recentItem)
+
+                    if not recentItem in recentlyProcessedItems:
+                        recentWatchlist.append(item)
                 else:
-                    raise
+                    break
 
-        watchlistRequest = requestWatchlist()
+            with open(tokensFilename, 'r+') as tokensFile:
+                tokens = json.load(tokensFile)
+                token = tokens[userId]
+                token['etag'] = etag
+                token['recentlyProcessedItems'] = newRecentlyProcessedItems
+                tokensFile.seek(0)
+                json.dump(tokens, tokensFile)
+                tokensFile.truncate()
 
-        if watchlistRequest.status_code == 401:
-            print(f"UserId {userId} no longer authenticated")
-            discordError(f"UserId {userId} no longer authenticated")
-            continue
+            user = getUserForPlexToken(token['token'])
+            userId = user['id']
+            username = user['displayName']
 
-        if watchlistRequest.status_code == 304:
-            print(f"No changes for userId {userId}")
-            continue
+            print(f"Requesting new items for userId {userId} - {username}")
 
-        if watchlistRequest.status_code != 200:
-            print(watchlistRequest)
-            print(watchlistRequest.url)
-            continue
+            if not recentWatchlist:
+                print("No new items were found")
 
-        etag = watchlistRequest.headers['etag']
-
-        now = datetime.datetime.now()
-        recentlyProcessedItems = token.get('recentlyProcessedItems', [])
-
-        watchlist = watchlistRequest.json()['MediaContainer']
-
-        if not 'Metadata' in watchlist:
-            continue
-
-        watchlistItems = watchlist['Metadata']
-
-        recentWatchlist = []
-        newRecentlyProcessedItems = []
-
-        for item in watchlistItems:
-            try:
-                watchlistedAt = datetime.datetime.fromtimestamp(item['watchlistedAt'])
-                discordUpdate('Watchlist has resumed functioning')
-            except:
+            for item in recentWatchlist:
                 ratingKey = item['ratingKey']
-                watchlistedAtTimestamp = getWatchlistedAt(ratingKey, headers)
+                watchlistedAt = item['watchlistedAt']
+                requestItem(user, ratingKey, watchlistedAt, headers, getSeason=lambda: getCurrentSeason(ratingKey, headers, token))
 
-                if not watchlistedAtTimestamp:
-                    print(f"No watchlisted timestamp for RatingKey {ratingKey} and UserId {userId}")
-                    discordError(f"No watchlisted timestamp for RatingKey {ratingKey} and UserId {userId}")
-                    continue
+        except:
+            e = traceback.format_exc()
 
-                watchlistedAt = datetime.datetime.fromtimestamp(watchlistedAtTimestamp)
-                item['watchlistedAt'] = watchlistedAtTimestamp
+            print(f"Error processing requests for userId {userId}")
+            print(e)
 
-            if now - watchlistedAt < datetime.timedelta(hours=1):
-                recentItem = buildRecentItem(item)
-                newRecentlyProcessedItems.append(recentItem)
+            discordError(f"Error processing requests for userId {userId}", e)
 
-                if not recentItem in recentlyProcessedItems:
-                    recentWatchlist.append(item)
-            else:
-                break
-
-        with open(tokensFilename, 'r+') as tokensFile:
-            tokens = json.load(tokensFile)
-            token = tokens[userId]
-            token['etag'] = etag
-            token['recentlyProcessedItems'] = newRecentlyProcessedItems
-            tokensFile.seek(0)
-            json.dump(tokens, tokensFile)
-            tokensFile.truncate()
-
-        user = getUserForPlexToken(token['token'])
-        userId = user['id']
-        username = user['displayName']
-
-        print(f"Requesting new items for userId {userId} - {username}")
-
-        if not recentWatchlist:
-            print("No new items were found")
-
-        for item in recentWatchlist:
-            ratingKey = item['ratingKey']
-            watchlistedAt = item['watchlistedAt']
-            requestItem(user, ratingKey, watchlistedAt, headers, getSeason=lambda: getCurrentSeason(ratingKey, headers, token))
-
-    except:
-        e = traceback.format_exc()
-
-        print(f"Error processing requests for userId {userId}")
-        print(e)
-
-        discordError(f"Error processing requests for userId {userId}", e)
+if __name__ == "__main__":
+    run()

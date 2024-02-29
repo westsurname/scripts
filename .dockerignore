@@ -2,5 +2,5 @@
 .env.template
 .gitignore
 docker-compose.yml
-dockerfile
+Dockerfile.*
 README.md

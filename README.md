@@ -27,9 +27,8 @@
     ```
 4. Copy `.env.template` to `.env` and populate the (applicable) variables:
 
-   - **General Configuration** - Plex Authentication:
+   - **Server** - Plex Authentication:
      - `SERVER_DOMAIN`: The domain name of your server.
-     - `PYTHONUNBUFFERED`: Set to `TRUE` to ensure Python output is displayed in the logs in real-time.
 
    - **Plex** - Watchlist, Plex Authentication:
      - `PLEX_HOST`: The URL to general Plex services.
@@ -52,7 +51,7 @@
      - `RADARR_HOST`: The host address of your Radarr instance.
      - `RADARR_API_KEY`: The API key for accessing Radarr.
 
-   - **Tautulli**:
+   - **Tautulli**
      - `TAUTULLI_HOST`: The host address of your Tautulli instance.
      - `TAUTULLI_API_KEY`: The API key for accessing Tautulli.
 
@@ -60,10 +59,10 @@
      - `REALDEBRID_HOST`: The host address for the RealDebrid API.
      - `REALDEBRID_API_KEY`: The API key for accessing RealDebrid services.
 
-   - **Trakt**:
+   - **Trakt**
      - `TRAKT_API_KEY`: The API key for integrating with Trakt.
 
-   - **Pushbullet**:
+   - **Pushbullet**
      - `PUSHBULLET_API_KEY`: The API key for sending notifications via Pushbullet.
 
    - **Watchlist** - Watchlist:
@@ -85,6 +84,10 @@
      - `DISCORD_ENABLED`: Set to `true` to enable Discord error notifications.
      - `DISCORD_UPDATE_ENABLED`: Set to `true` to enable update notifications as well on Discord.
      - `DISCORD_WEBHOOK_URL`: The Discord webhook URL for sending notifications.
+
+   - **General Configuration**
+    - `PYTHONUNBUFFERED`: Set to `TRUE` to ensure Python output is displayed in the logs in real-time.
+
 
 ## Blackhole
 
