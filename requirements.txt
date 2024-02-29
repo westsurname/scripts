@@ -4,3 +4,4 @@ environs==9.5.0
 requests==2.28.1
 Werkzeug==3.0.1
 watchdog==4.0.0
+flask==3.0.2
