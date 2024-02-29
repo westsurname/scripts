@@ -6,6 +6,6 @@ WORKDIR /app
 COPY . .
 
 # Install Python dependencies
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 CMD ["python", "watchlist_runner.py"]

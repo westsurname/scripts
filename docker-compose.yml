@@ -37,8 +37,12 @@ services:
       context: .
       dockerfile: Dockerfile.plex_authentication
     container_name: plex_authentication_service
+    ports:
+      - 8000:8000
     env_file:
       - .env
+    environment:
+      - SERVER_DOMAIN=${SERVER_DOMAIN}:8000
     restart: unless-stopped
     profiles: [plex_authentication, all]
 

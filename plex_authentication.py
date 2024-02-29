@@ -54,7 +54,7 @@ def setupComplete(pin):
 
     return jsonify('There was an error, please try again.')
 
-app.wsgi_app = DispatcherMiddleware(run_simple, {'/plexAuthentication': app.wsgi_app})
+# app.wsgi_app = DispatcherMiddleware(run_simple, {'/plexAuthentication': app.wsgi_app})
     
 if __name__ == '__main__':
     app.run('127.0.0.1', 12598)
