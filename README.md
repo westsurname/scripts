@@ -51,7 +51,7 @@
      - `RADARR_HOST`: The host address of your Radarr instance.
      - `RADARR_API_KEY`: The API key for accessing Radarr.
 
-   - **Tautulli**
+   - **Tautulli**:
      - `TAUTULLI_HOST`: The host address of your Tautulli instance.
      - `TAUTULLI_API_KEY`: The API key for accessing Tautulli.
 
@@ -59,10 +59,10 @@
      - `REALDEBRID_HOST`: The host address for the RealDebrid API.
      - `REALDEBRID_API_KEY`: The API key for accessing RealDebrid services.
 
-   - **Trakt**
+   - **Trakt**:
      - `TRAKT_API_KEY`: The API key for integrating with Trakt.
 
-   - **Pushbullet**
+   - **Pushbullet**:
      - `PUSHBULLET_API_KEY`: The API key for sending notifications via Pushbullet.
 
    - **Watchlist** - Watchlist:
@@ -85,7 +85,7 @@
      - `DISCORD_UPDATE_ENABLED`: Set to `true` to enable update notifications as well on Discord.
      - `DISCORD_WEBHOOK_URL`: The Discord webhook URL for sending notifications.
 
-   - **General Configuration**
+   - **General Configuration**:
     - `PYTHONUNBUFFERED`: Set to `TRUE` to ensure Python output is displayed in the logs in real-time.
 
 
