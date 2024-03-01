@@ -30,7 +30,7 @@
    - **Server** - Plex Authentication:
      - `SERVER_DOMAIN`: The domain name of your server.
 
-   - **Plex** - Watchlist, Plex Authentication:
+   - **Plex** - Watchlist, Plex Authentication, Plex Refresh:
      - `PLEX_HOST`: The URL to general Plex services.
      - `PLEX_METADATA_HOST`: The URL to the Plex metadata service.
      - `PLEX_SERVER_HOST`: The host address of your Plex server.
@@ -39,19 +39,19 @@
      - `PLEX_SERVER_MOVIE_LIBRARY_ID`: The library ID for movies on your Plex server.
      - `PLEX_SERVER_TV_SHOW_LIBRARY_ID`: The library ID for TV shows on your Plex server.
 
-   - **Overseerr** - Watchlist, Plex Authentication:
+   - **Overseerr** - Watchlist, Plex Authentication, Reclaim Space:
      - `OVERSEERR_HOST`: The host address of your Overseeer instance.
      - `OVERSEERR_API_KEY`: The API key for accessing Overseeer.
 
-   - **Sonarr** - Blackhole, Repair:
+   - **Sonarr** - Blackhole, Repair, Move Media to Directory, Reclaim Space, Add Next Episode:
      - `SONARR_HOST`: The host address of your Sonarr instance.
      - `SONARR_API_KEY`: The API key for accessing Sonarr.
 
-   - **Radarr** - Blackhole, Repair:
+   - **Radarr** - Blackhole, Repair, Move Media to Directory, Reclaim Space:
      - `RADARR_HOST`: The host address of your Radarr instance.
      - `RADARR_API_KEY`: The API key for accessing Radarr.
 
-   - **Tautulli**:
+   - **Tautulli** - Reclaim Space:
      - `TAUTULLI_HOST`: The host address of your Tautulli instance.
      - `TAUTULLI_API_KEY`: The API key for accessing Tautulli.
 
@@ -59,11 +59,8 @@
      - `REALDEBRID_HOST`: The host address for the RealDebrid API.
      - `REALDEBRID_API_KEY`: The API key for accessing RealDebrid services.
 
-   - **Trakt**:
+   - **Trakt** - Reclaim Space:
      - `TRAKT_API_KEY`: The API key for integrating with Trakt.
-
-   - **Pushbullet**:
-     - `PUSHBULLET_API_KEY`: The API key for sending notifications via Pushbullet.
 
    - **Watchlist** - Watchlist:
      - `WATCHLIST_PLEX_PRODUCT`: Identifier for the Plex product used in watchlists.
@@ -80,7 +77,7 @@
      - `BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT`: The timeout in seconds to wait for a torrent to be successful before failing.
      - `BLACKHOLE_HISTORY_PAGE_SIZE`: The number of history items to pull at once when attempting to mark a download as failed.
 
-   - **Discord** - Blackhole, Watchlist, Plex Authentication:
+   - **Discord** - Blackhole, Watchlist, Plex Authentication, Monitor Ram, Reclaim Space:
      - `DISCORD_ENABLED`: Set to `true` to enable Discord error notifications.
      - `DISCORD_UPDATE_ENABLED`: Set to `true` to enable update notifications as well on Discord.
      - `DISCORD_WEBHOOK_URL`: The Discord webhook URL for sending notifications.
