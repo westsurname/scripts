@@ -1,11 +1,14 @@
 FROM python:3.8-slim
 
+ARG SERVICE_NAME=blackhole
+
 # Set working directory
 WORKDIR /app
 
 COPY . .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN grep -E "#.*($SERVICE_NAME|all)" requirements.txt | awk '{print $0}' > service_requirements.txt
+RUN pip install --no-cache-dir -r service_requirements.txt
 
 CMD ["python", "blackhole_watcher.py"]

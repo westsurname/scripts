@@ -1,5 +1,7 @@
 FROM python:3.8-slim
 
+ARG SERVICE_NAME=plex_authentication
+
 # Set working directory
 WORKDIR /app
 
@@ -7,7 +9,8 @@ WORKDIR /app
 COPY . .
 
 # Install gunicorn and other dependencies
-RUN pip install --no-cache-dir gunicorn -r requirements.txt
+RUN grep -E "#.*($SERVICE_NAME|all)" requirements.txt | awk '{print $0}' > service_requirements.txt
+RUN pip install --no-cache-dir gunicorn -r service_requirements.txt
 
 # Expose port 8000 to the outside world
 EXPOSE 8000
