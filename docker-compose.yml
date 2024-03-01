@@ -27,6 +27,8 @@ services:
       context: .
       dockerfile: Dockerfile.watchlist
     container_name: watchlist_service
+    volumes:
+      - ./shared/tokens.json:/app/shared/tokens.json
     env_file:
       - .env
     restart: unless-stopped
@@ -37,6 +39,8 @@ services:
       context: .
       dockerfile: Dockerfile.plex_authentication
     container_name: plex_authentication_service
+    volumes:
+      - ./shared/tokens.json:/app/shared/tokens.json
     ports:
       - 8000:8000
     env_file:
@@ -51,6 +55,8 @@ services:
       context: .
       dockerfile: Dockerfile.plex_request
     container_name: plex_request_service
+    volumes:
+      - ./shared/tokens.json:/app/shared/tokens.json
     ports:
       - 8001:8000
     env_file:
