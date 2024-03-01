@@ -6,3 +6,4 @@ Werkzeug==3.0.1
 watchdog==4.0.0
 flask==3.0.2
 Flask-Caching==2.1.0
+declxml==1.1.3

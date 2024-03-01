@@ -10,7 +10,7 @@ import declxml as xml
 from flask import Flask, jsonify, request, Response
 from flask_caching import Cache
 from shared.discord import discordError, discordUpdate
-from shared.shared import plex, plexHeaders
+from shared.shared import plex, plexHeaders, pathToScript
 from shared.overseerr import requestItem, getUserForPlexServerToken
 
 # instantiate the app
@@ -18,7 +18,7 @@ app = Flask(__name__)
 app.config.from_object(__name__)
 app.url_map.strict_slashes = False
 
-cacheDir = '/home/west/scripts/cache'
+cacheDir = os.path.join(pathToScript, "../cache")
 
 for file in os.listdir(cacheDir):
     filePath = os.path.join(cacheDir, file)

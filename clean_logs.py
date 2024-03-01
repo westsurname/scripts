@@ -2,7 +2,7 @@ import os
 import datetime
 from shared.shared import pathToScript
 
-folder = os.path.abspath(os.path.join(pathToScript, "../logs"))
+folder = os.path.join(pathToScript, "../logs")
 max_lines = 1000
 max_size = 1048576
 

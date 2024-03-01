@@ -30,7 +30,7 @@
    - **Server** - Plex Authentication:
      - `SERVER_DOMAIN`: The domain name of your server.
 
-   - **Plex** - Watchlist, Plex Authentication, Plex Refresh:
+   - **Plex** - Watchlist, Plex Authentication, Plex Request, Plex Refresh:
      - `PLEX_HOST`: The URL to general Plex services.
      - `PLEX_METADATA_HOST`: The URL to the Plex metadata service.
      - `PLEX_SERVER_HOST`: The host address of your Plex server.
@@ -39,7 +39,7 @@
      - `PLEX_SERVER_MOVIE_LIBRARY_ID`: The library ID for movies on your Plex server.
      - `PLEX_SERVER_TV_SHOW_LIBRARY_ID`: The library ID for TV shows on your Plex server.
 
-   - **Overseerr** - Watchlist, Plex Authentication, Reclaim Space:
+   - **Overseerr** - Watchlist, Plex Authentication, Plex Request, Reclaim Space:
      - `OVERSEERR_HOST`: The host address of your Overseeer instance.
      - `OVERSEERR_API_KEY`: The API key for accessing Overseeer.
 
@@ -62,7 +62,7 @@
    - **Trakt** - Reclaim Space:
      - `TRAKT_API_KEY`: The API key for integrating with Trakt.
 
-   - **Watchlist** - Watchlist:
+   - **Watchlist** - Watchlist, Plex Request:
      - `WATCHLIST_PLEX_PRODUCT`: Identifier for the Plex product used in watchlists.
      - `WATCHLIST_PLEX_VERSION`: The version of the Plex product used.
      - `WATCHLIST_PLEX_CLIENT_IDENTIFIER`: A unique identifier for the Plex client.
@@ -77,7 +77,7 @@
      - `BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT`: The timeout in seconds to wait for a torrent to be successful before failing.
      - `BLACKHOLE_HISTORY_PAGE_SIZE`: The number of history items to pull at once when attempting to mark a download as failed.
 
-   - **Discord** - Blackhole, Watchlist, Plex Authentication, Monitor Ram, Reclaim Space:
+   - **Discord** - Blackhole, Watchlist, Plex Authentication, Plex Request, Monitor Ram, Reclaim Space:
      - `DISCORD_ENABLED`: Set to `true` to enable Discord error notifications.
      - `DISCORD_UPDATE_ENABLED`: Set to `true` to enable update notifications as well on Discord.
      - `DISCORD_WEBHOOK_URL`: The Discord webhook URL for sending notifications.
