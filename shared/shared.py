@@ -64,10 +64,6 @@ trakt = {
     'apiKey': os.getenv('TRAKT_API_KEY')
 }
 
-pushbullet = {
-    'apiKey': os.getenv('PUSHBULLET_API_KEY')
-}
-
 discord = {
     'enabled': env.bool('DISCORD_ENABLED'),
     'updateEnabled': env.bool('DISCORD_UPDATE_ENABLED'),

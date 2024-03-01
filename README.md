@@ -133,10 +133,10 @@ The script accepts the following arguments:
 Here is an example of how you might use this script:
 
 ```bash
-python3 import_torrent_folder.py --directory "My TV Show" --radarr --dry-run
+python3 import_torrent_folder.py --directory "Some Movie (2024)" --radarr --dry-run
 ```
 
-In this example, the script will process the "My TV Show" directory using the Radarr symlink directory. It will print the actions it would take without actually executing them, because the --dry-run flag is set.
+In this example, the script will process the "Some Movie (2024)" directory using the Radarr symlink directory. It will print the actions it would take without actually executing them, because the --dry-run flag is set.
 
 
 ## Delete Non-Linked Folders

@@ -17,7 +17,10 @@ class BlackholeHandler(FileSystemEventHandler):
             finally:
                 self.is_processing = False
 
+
 if __name__ == "__main__":
+    print("Watching blackhole")
+
     radarr_handler = BlackholeHandler(is_radarr=True)
     sonarr_handler = BlackholeHandler(is_radarr=False)
 
