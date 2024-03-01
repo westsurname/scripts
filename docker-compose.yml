@@ -46,3 +46,15 @@ services:
     restart: unless-stopped
     profiles: [plex_authentication, all]
 
+  plex_request:
+    build: 
+      context: .
+      dockerfile: Dockerfile.plex_request
+    container_name: plex_request_service
+    ports:
+      - 8001:8000
+    env_file:
+      - .env
+    restart: unless-stopped
+    profiles: [plex_request, all]
+
