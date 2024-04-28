@@ -324,7 +324,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                         # Send progress to arr
                         progress = info['progress']
                         print(progress)
-                        if torrent.incompatibleHashSize:
+                        if torrent.incompatibleHashSize and torrent.failIfNotCached:
                             print("Non-cached incompatible hash sized torrent")
                             torrent.delete()
                             fail(torrent)
@@ -402,13 +402,14 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                             await asyncio.sleep(1)
                         break
                 
-                    if count == 21:
-                        print('infoCount > 20')
-                        discordError(f"{file.fileInfo.filenameWithoutExt} info attempt count > 20", status)
-                    elif count == blackhole['waitForTorrentTimeout']:
-                        print('infoCount == 60 - Failing')
-                        fail(torrent)
-                        break
+                    if torrent.failIfNotCached:
+                        if count == 21:
+                            print('infoCount > 20')
+                            discordError(f"{file.fileInfo.filenameWithoutExt} info attempt count > 20", status)
+                        elif count == blackhole['waitForTorrentTimeout']:
+                            print('infoCount == 60 - Failing')
+                            fail(torrent)
+                            break
 
             os.remove(file.fileInfo.filePathProcessing)
     except:

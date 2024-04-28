@@ -1,7 +1,14 @@
 import os
+import argparse
 from shared.arr import Sonarr, Radarr
 from shared.discord import discordUpdate
 from shared.shared import intersperse
+
+# Parse arguments for dry run and no confirm options
+parser = argparse.ArgumentParser(description='Repair broken symlinks and manage media files.')
+parser.add_argument('--dry-run', action='store_true', help='Perform a dry run without making any changes.')
+parser.add_argument('--no-confirm', action='store_true', help='Execute without confirmation prompts.')
+args = parser.parse_args()
 
 sonarr = Sonarr()
 radarr = Radarr()
@@ -37,20 +44,21 @@ for arr, media in intersperse(sonarrMedia, radarrMedia):
             print("Broken symlinks:")
             [print(brokenSymlink) for brokenSymlink in brokenSymlinks]
             print()
-            if input("Do you want to perform an automatic search? (y/n): ").lower() == 'y':
+            if args.dry_run or args.no_confirm or input("Do you want to delete and re-grab? (y/n): ").lower() == 'y':
                 discordUpdate(f"Repairing... {media.title} - {childId}")
                 print("Deleting files:")
                 [print(childFile.path) for childFile in childFiles]
-                results = arr.deleteFiles(childFiles)
-                print("Remonitoring")
-                media = arr.get(media.id)
-                media.setChildMonitored(childId, False)
-                arr.put(media)
-                media.setChildMonitored(childId, True)
-                arr.put(media)
-                print("Searching for new files")
-                results = arr.automaticSearch(media, childId)
-                print(results)
+                if not args.dry_run:
+                    results = arr.deleteFiles(childFiles)
+                    print("Remonitoring")
+                    media = arr.get(media.id)
+                    media.setChildMonitored(childId, False)
+                    arr.put(media)
+                    media.setChildMonitored(childId, True)
+                    arr.put(media)
+                    print("Searching for new files")
+                    results = arr.automaticSearch(media, childId)
+                    print(results)
             else:
                 print("Skipping")
             print()
