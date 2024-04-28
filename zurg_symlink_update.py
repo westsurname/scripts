@@ -4,7 +4,8 @@ import argparse
 
 def update_symlink(src_path, new_name, dry_run):
     target_link_path = os.readlink(src_path)
-    new_target_path = os.path.join(os.path.dirname(target_link_path), new_name)
+    path_parts = os.path.split(os.path.dirname(target_link_path))
+    new_target_path = os.path.join(os.path.join(*path_parts[:-1]), new_name, os.path.basename(target_link_path))
     if not dry_run:
         os.unlink(src_path)
         os.symlink(new_target_path, src_path)
@@ -34,12 +35,13 @@ def main(dry_run, no_confirm):
             
             # Check all symlinks and update if they point to a relevant path
             for symlink_path, target_path in symlink_map.items():
+                target_dir_name = os.path.basename(os.path.dirname(target_path))
                 if switch_to_retain:
-                    if target_path.endswith(original_name) or target_path.endswith(original_name_no_ext):
+                    if target_dir_name == original_name or target_dir_name == original_name_no_ext:
                         if dry_run or no_confirm or input(f"Update symlink for {original_name} to {current_name}? (y/n): ").lower() == 'y':
                             update_symlink(symlink_path, current_name, dry_run)
                 else:
-                    if target_path.endswith(current_name):
+                    if target_dir_name == current_name:
                         if dry_run or no_confirm or input(f"Revert symlink for {current_name} to {original_name}? (y/n): ").lower() == 'y':
                             update_symlink(symlink_path, original_name, dry_run)
 
