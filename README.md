@@ -3,7 +3,6 @@
 ## Installation
 
 ### Prerequisites
-- Systemd.
 - Python 3.x installed.
 - Pip package manager.
 

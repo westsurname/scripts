@@ -5,20 +5,13 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile.blackhole
-      # args:
-      #   BLACKHOLE_RD_MOUNT_TORRENTS_PATH_HOST: ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
-        # BLACKHOLE_RD_MOUNT_TORRENTS_PATH: /app/torrent-mount
     container_name: blackhole_service
     volumes:
-      - ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}:/app/torrent-mount
-      - ./blackhole/${BLACKHOLE_RADARR_PATH}:/app/blackhole/${BLACKHOLE_RADARR_PATH}
-      - ./blackhole/${BLACKHOLE_SONARR_PATH}:/app/blackhole/${BLACKHOLE_SONARR_PATH}
+      - ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}:${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
+      - ./${BLACKHOLE_BASE_WATCH_PATH}:/app/${BLACKHOLE_BASE_WATCH_PATH}
       - ./logs:/app/logs
     env_file:
       - .env
-    environment:
-      # - BLACKHOLE_RD_MOUNT_TORRENTS_PATH_HOST=${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
-      - BLACKHOLE_RD_MOUNT_TORRENTS_PATH=/app/torrent-mount
     restart: unless-stopped
     profiles: [blackhole, all]
 
