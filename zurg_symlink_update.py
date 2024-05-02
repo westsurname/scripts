@@ -2,6 +2,10 @@ import os
 import json
 import argparse
 
+data_directory = "/path/to/zurg/data"
+symlink_directory = "/path/to/symlinks"
+switch_to_retain = True
+
 def update_symlink(src_path, new_name, dry_run):
     target_link_path = os.readlink(src_path)
     path_parts = os.path.split(os.path.dirname(target_link_path))
@@ -12,10 +16,6 @@ def update_symlink(src_path, new_name, dry_run):
     print(f"Updated symlink: {os.path.basename(src_path)} -> {new_name}")
 
 def main(dry_run, no_confirm):
-    data_directory = "path/to/zurg/data"
-    symlink_directory = "path/to/symlinks"
-    switch_to_retain = True
-
     # Load all symlinks from the symlink directory into memory
     symlink_map = {}
     for root, dirs, files in os.walk(symlink_directory):
