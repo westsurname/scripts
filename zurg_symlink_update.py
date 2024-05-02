@@ -37,12 +37,12 @@ def main(dry_run, no_confirm):
             for symlink_path, target_path in symlink_map.items():
                 target_dir_name = os.path.basename(os.path.dirname(target_path))
                 if switch_to_retain:
-                    if target_dir_name == original_name or target_dir_name == original_name_no_ext:
-                        if dry_run or no_confirm or input(f"Update symlink for {original_name} to {current_name}? (y/n): ").lower() == 'y':
+                    if (target_dir_name == original_name or target_dir_name == original_name_no_ext) and target_dir_name != current_name:
+                        if dry_run or no_confirm or input(f"Update symlink for {os.path.basename(symlink_path)} from {original_name} to {current_name}? (y/n): ").lower() == 'y':
                             update_symlink(symlink_path, current_name, dry_run)
                 else:
-                    if target_dir_name == current_name:
-                        if dry_run or no_confirm or input(f"Revert symlink for {current_name} to {original_name}? (y/n): ").lower() == 'y':
+                    if target_dir_name == current_name and target_dir_name != original_name:
+                        if dry_run or no_confirm or input(f"Revert symlink for {os.path.basename(symlink_path)} from {current_name} to {original_name}? (y/n): ").lower() == 'y':
                             update_symlink(symlink_path, original_name, dry_run)
 
 if __name__ == '__main__':
