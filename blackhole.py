@@ -214,10 +214,11 @@ def getPath(isRadarr, create=False):
     absoluteBaseWatchPath = baseWatchPath if os.path.isabs(baseWatchPath) else os.path.abspath(baseWatchPath)
     finalPath = os.path.join(absoluteBaseWatchPath, blackhole['radarrPath'] if isRadarr else blackhole['sonarrPath'])
 
-    if create and not os.path.exists(finalPath):
-        os.makedirs(finalPath)
-        os.makedirs(os.path.join(finalPath, 'processing'))
-        os.makedirs(os.path.join(finalPath, 'completed'))
+    if create:
+        for sub_path in ['', 'processing', 'completed']:
+            path_to_check = os.path.join(finalPath, sub_path)
+            if not os.path.exists(path_to_check):
+                os.makedirs(path_to_check)
         
     return finalPath
 
