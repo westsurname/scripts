@@ -83,7 +83,9 @@
 
    - **General Configuration**:
     - `PYTHONUNBUFFERED`: Set to `TRUE` to ensure Python output is displayed in the logs in real-time.
-
+    - `PUID`: Set this to the user ID that the service should run as.
+    - `PGID`: Set this to the group ID that the service should run as.
+    - `UMASK`: Set this to control the default file creation permissions.
 
 ## Blackhole
 

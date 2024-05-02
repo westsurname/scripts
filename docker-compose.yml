@@ -1,19 +1,33 @@
 version: '3.8'
 
+x-blackhole: &blackhole
+  build: 
+    context: .
+    dockerfile: Dockerfile.blackhole
+  container_name: blackhole${APPEND}_service
+  user: "${PUID:-1000}:${PGID:-1000}"
+  volumes:
+    - ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}:${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
+    - ./${BLACKHOLE_BASE_WATCH_PATH}${APPEND}:/app/${BLACKHOLE_BASE_WATCH_PATH}
+  env_file:
+    - .env
+  restart: unless-stopped
+  profiles: [blackhole-all, all]
+
 services:
   blackhole:
-    build: 
-      context: .
-      dockerfile: Dockerfile.blackhole
-    container_name: blackhole_service
-    volumes:
-      - ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}:${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
-      - ./${BLACKHOLE_BASE_WATCH_PATH}:/app/${BLACKHOLE_BASE_WATCH_PATH}
-      - ./logs:/app/logs
-    env_file:
-      - .env
-    restart: unless-stopped
-    profiles: [blackhole, all]
+    <<: *blackhole
+  profiles: [blackhole]
+
+  blackhole4k:
+    <<: *blackhole
+    environment:
+      - APPEND=4k
+      - SONARR_HOST=${SONARR_HOST_4K}
+      - SONARR_API_KEY=${SONARR_API_KEY_4K}
+      - RADARR_HOST=${RADARR_HOST_4K}
+      - RADARR_API_KEY=${RADARR_API_KEY_4K}
+    profiles: [blackhole4k]
 
   watchlist:
     build: 
