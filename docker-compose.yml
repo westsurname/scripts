@@ -4,30 +4,33 @@ x-blackhole: &blackhole
   build: 
     context: .
     dockerfile: Dockerfile.blackhole
-  container_name: blackhole${APPEND}_service
   user: "${PUID:-1000}:${PGID:-1000}"
-  volumes:
-    - ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}:${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
-    - ./${BLACKHOLE_BASE_WATCH_PATH}${APPEND}:/app/${BLACKHOLE_BASE_WATCH_PATH}
   env_file:
     - .env
   restart: unless-stopped
-  profiles: [blackhole-all, all]
 
 services:
   blackhole:
     <<: *blackhole
-    profiles: [blackhole]
+    container_name: blackhole_service
+    volumes:
+      - ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}:${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
+      - ./${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}:/app/${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}
+      - ./${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}:/app/${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}
+    profiles: [blackhole, blackhole-all, all]
 
   blackhole4k:
     <<: *blackhole
+    container_name: blackhole4k_service
     environment:
-      - APPEND=4k
       - SONARR_HOST=${SONARR_HOST_4K}
       - SONARR_API_KEY=${SONARR_API_KEY_4K}
       - RADARR_HOST=${RADARR_HOST_4K}
       - RADARR_API_KEY=${RADARR_API_KEY_4K}
-    profiles: [blackhole4k]
+    volumes:
+      - ./${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH} 4k:/app/${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}
+      - ./${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH} 4k:/app/${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}
+    profiles: [blackhole4k, blackhole-all, all]
 
   watchlist:
     build: 
