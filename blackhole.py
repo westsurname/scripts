@@ -212,7 +212,10 @@ class Magnet(TorrentBase):
 def getPath(isRadarr):
     baseWatchPath = blackhole['baseWatchPath']
     absoluteBaseWatchPath = baseWatchPath if os.path.isabs(baseWatchPath) else os.path.abspath(baseWatchPath)
-    return os.path.join(absoluteBaseWatchPath, blackhole['radarrPath'] if isRadarr else blackhole['sonarrPath'])
+    finalPath = os.path.join(absoluteBaseWatchPath, blackhole['radarrPath'] if isRadarr else blackhole['sonarrPath'])
+    if not os.path.exists(finalPath):
+        os.makedirs(finalPath)
+    return finalPath
 
 # From Radarr Radarr/src/NzbDrone.Core/Organizer/FileNameBuilder.cs
 def cleanFileName(name):

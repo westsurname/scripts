@@ -17,7 +17,7 @@ x-blackhole: &blackhole
 services:
   blackhole:
     <<: *blackhole
-  profiles: [blackhole]
+    profiles: [blackhole]
 
   blackhole4k:
     <<: *blackhole
