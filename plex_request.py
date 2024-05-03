@@ -248,7 +248,7 @@ def children(id):
             'Accept': 'application/json',
         }
 
-        childrenRequest = requests.get(f"{plex['serverHost']}library/metadata/{id}/children", headers=headers, params=request.args)
+        childrenRequest = requests.get(f"{plex['serverHost']}/library/metadata/{id}/children", headers=headers, params=request.args)
 
         if childrenRequest.status_code != 200:
             return childrenRequest.text, childrenRequest.status_code
@@ -274,7 +274,7 @@ def children(id):
                 'X-Plex-Token': headers.get('X-Plex-Token', request.args.get('X-Plex-Token'))
             }
 
-            metadataChildrenRequest = requests.get(f"{plex['metadataHost']}/library/metadata/{guid}/children", headers=metadataHeaders, params=request.args)
+            metadataChildrenRequest = requests.get(f"{plex['metadataHost']}library/metadata/{guid}/children", headers=metadataHeaders, params=request.args)
             print(metadataChildrenRequest)
             # print(metadataChildrenRequest.text)
             if metadataChildrenRequest.status_code == 200:
