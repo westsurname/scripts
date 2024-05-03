@@ -35,22 +35,7 @@ _print = print
 
 def print(*values: object):
     _print(f"[{datetime.now()}]", *values, flush=True)
-
-defaultMetadataString = """
-{
-    "ratingKey": "12065",
-    "librarySectionTitle": "Request (WIP)",
-    "librarySectionID": 1,
-    "librarySectionKey": "/library/sections/1",
-    "Media": [
-                {
-                    "videoResolution": "Request (WIP)"
-                }
-            ]
-}
-"""
-
-
+    
 def processDict(key, value):
     return xml.dictionary(key, [*traverseDict(value, processDict, processList, processElse)], required=False)
 
@@ -95,9 +80,13 @@ def requestRatingKey(mediaType, mediaTypeNum, ratingKey, season=None):
             **plexHeaders,
             'X-Plex-Token': token
         }
-
+        # global recentRequests
+        # print(recentRequests)
+        # recentRequests = { ratingKey:time for (ratingKey, time) in recentRequests.items() if datetime.now() - datetime.fromtimestamp(time) < timedelta(hours=1) }
+        # print(recentRequests)
         recentlyRequested = cache.get(ratingKey) or []
         print(recentlyRequested)
+        # if not ratingKey in recentRequests:
         if not token in recentlyRequested:
             print(ratingKey, 'Not in recentRequests')
             
@@ -163,7 +152,6 @@ def requestRatingKey(mediaType, mediaTypeNum, ratingKey, season=None):
         discordError(f"Error in /library/request", e)
 
         return 'Server Error', 500
-
 @app.route('/library/all', methods=['GET'])
 def all():
     try:
@@ -192,11 +180,33 @@ def all():
             season = request.args.get('season.index', '1' if mediaType == 'show' else None)
 
             if mediaType != 'episode':
-                defaultMetadata = json.loads(defaultMetadataString)
-                defaultMetadata['key'] = f"/library/request/{mediaType}/{mediaTypeNum}/{guid}{f'/season/{season}' if season is not None else ''}"
-                defaultMetadata['guid'] = fullGuid
-                mediaContainer['size'] = 1
-                mediaContainer['Metadata'] = [defaultMetadata]
+
+                metadataHeaders = {
+                    **plexHeaders,
+                    'X-Plex-Token': headers.get('X-Plex-Token', request.args.get('X-Plex-Token'))
+                }
+
+                metadataAllRequest = requests.get(f"{plex['metadataHost']}library/metadata/{guid}", headers=metadataHeaders, params=request.args)
+                # print(f"{plex['metadataHost']}library/metadata/{guid}")
+                # print(metadataHeaders)
+                # print(request.args)
+                print(metadataAllRequest)
+                # print(metadataAllRequest.text)
+                if metadataAllRequest.status_code == 200:
+                    additionalMetadata = metadataAllRequest.json()['MediaContainer']['Metadata'][0]
+                    # if additionalMetadata:
+                    #     mediaContainer['Metadata'] = additionalMetadata
+                    additionalMetadata['key'] = f"/library/request/{mediaType}/{mediaTypeNum}/{guid}{f'/season/{season}' if season is not None else ''}"
+                    # additionalMetadata['guid'] = fullGuid
+                    additionalMetadata['ratingKey'] = "12065"
+                    additionalMetadata['librarySectionTitle'] = "Request (WIP)"
+                    additionalMetadata['librarySectionID'] = 1
+                    additionalMetadata['librarySectionKey'] = "/library/sections/1"
+                    additionalMetadata['Media'] = [{
+                        "videoResolution": "Request (WIP)"
+                    }]
+                    mediaContainer['size'] = 1
+                    mediaContainer['Metadata'] = [additionalMetadata]
 
         if request.accept_mimetypes.best_match(['application/xml', 'application/json']) == 'application/json':
             print('accepts json')
@@ -230,9 +240,102 @@ def all():
                 
         return 'Server Error', 500
 
-    # print(all)
-    # return jsonify(all)
-    
+@app.route('/library/metadata/<id>/children', methods=['GET'])
+def children(id):
+    try:
+        headers = {
+            **request.headers,
+            'Accept': 'application/json',
+        }
+
+        childrenRequest = requests.get(f"{plex['serverHost']}library/metadata/{id}/children", headers=headers, params=request.args)
+
+        if childrenRequest.status_code != 200:
+            return childrenRequest.text, childrenRequest.status_code
+
+        print(childrenRequest)
+        print(request.headers.get('Accept'))
+        children = childrenRequest.json()
+
+        mediaContainer = children['MediaContainer']
+
+        if 'viewGroup' in mediaContainer and mediaContainer['viewGroup'] == "season" and 'Metadata' in mediaContainer and mediaContainer['Metadata']:
+            fullGuid = mediaContainer['Metadata'][0]['parentGuid']
+            guidMatch = re.match('plex:\/\/(.+?)\/(.+?)(?:\/|$)', fullGuid)
+
+            mediaType, guid = guidMatch.group(1, 2)
+            mediaTypeNum = 0
+
+            existing_seasons = {int(item['index']) for item in mediaContainer.get('Metadata', []) if item['type'] == 'season'}
+            highest_season = max(existing_seasons) if existing_seasons else 0
+
+            metadataHeaders = {
+                **plexHeaders,
+                'X-Plex-Token': headers.get('X-Plex-Token', request.args.get('X-Plex-Token'))
+            }
+
+            metadataChildrenRequest = requests.get(f"{plex['metadataHost']}/library/metadata/{guid}/children", headers=metadataHeaders, params=request.args)
+            print(metadataChildrenRequest)
+            # print(metadataChildrenRequest.text)
+            if metadataChildrenRequest.status_code == 200:
+                additionalMetadata = metadataChildrenRequest.json().get('MediaContainer', {}).get('Metadata', [])
+                metadata = mediaContainer['Metadata']
+                existingMetadataIndices = {item['index']: item for item in metadata} 
+                # Combine additional metadata with existing, preferring existing entries
+                for item in additionalMetadata:
+                    if item['index'] not in existingMetadataIndices:
+                        item['title'] = f"Request {item.get('title', '')}" 
+                        item['key'] = f"/library/request/{mediaType}/{mediaTypeNum}/{guid}/season/{item['index']}"
+                        item['ratingKey'] = "12065"
+                        item.pop('Guid', None)
+                        item.pop('Image', None)
+                        item.pop('Role', None)
+                        item.pop('banner', None)
+                        item.pop('contentRating', None)
+                        item.pop('hasGenericTitle', None)
+                        item.pop('originallyAvailableAt', None)
+                        item.pop('parentArt', None)
+                        item.pop('parentType', None)
+                        item.pop('publicPagesURL', None)
+                        item.pop('userState', None)
+                        item.pop('year', None)
+                        item.pop('parentKey', None)
+                        # thumb_url = f"https://textoverimage.moesif.com/image?image_url={item['thumb']}&overlay_color=ffffffaa&text=Request&text_color=282828ff&text_size=128&y_align=middle&x_align=center"
+                        # item['thumb'] = thumb_url
+                        metadata.append(item)
+                metadata.sort(key=lambda x: x['index'])
+                mediaContainer['size'] = len(metadata)
+                mediaContainer['totalSize'] = len(metadata)
+
+        if request.accept_mimetypes.best_match(['application/xml', 'application/json']) == 'application/json':
+            print('accepts json')
+            response = jsonify(children)
+            cors = childrenRequest.headers.get('Access-Control-Allow-Origin', None)
+            if cors:
+                response.headers.add('Access-Control-Allow-Origin', cors)
+        else:
+            print('doesn\'t accept json')
+
+            processor = processDict('MediaContainer', mediaContainer)
+            xmlString = xml.serialize_to_string(processor, mediaContainer, '    ')
+            response = Response(xmlString, mimetype='application/xml')
+
+            if 'fullGuid' in locals():
+                print('Request in xml')
+                print(xmlString)
+
+                discordError('Request in xml', xmlString)
+
+        return response
+    except:
+        e = traceback.format_exc()
+
+        print(f"Error in /library/metadata/{id}/children")
+        print(e)
+
+        discordError(f"Error in /library/metadata/{id}/children", e)
+                
+        return 'Server Error', 500    
     
 if __name__ == '__main__':
     app.run('127.0.0.1', 12599, debug=True)
