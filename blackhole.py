@@ -346,8 +346,8 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                         print('Waiting for folders to refresh...')
                         while existsCount <= blackhole['waitForTorrentTimeout']:
                             existsCount += 1
-                            folderPathMountFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], info['filename'])
-                            folderPathMountOriginalFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], info.get('original_filename', info['filename']))
+                            folderPathMountFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], info.get('filename'))
+                            folderPathMountOriginalFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], info.get('original_filename'))
                             folderPathMountTorrent = folderPathMountFilenameTorrent if os.path.exists(folderPathMountFilenameTorrent) and os.listdir(folderPathMountFilenameTorrent) else folderPathMountOriginalFilenameTorrent if os.path.exists(folderPathMountOriginalFilenameTorrent) and os.listdir(folderPathMountOriginalFilenameTorrent) else None
                             
                             if folderPathMountTorrent:
