@@ -233,6 +233,11 @@ def cleanFileName(name):
     
     return result.strip()
 
+async def refreshArr(arr: Arr, count=60):
+    # TODO: Change to refresh until found/imported
+    for _ in range(count):
+        arr.refreshMonitoredDownloads()
+        await asyncio.sleep(1)
 
 def copyFiles(file: TorrentFileInfo, folderPathMountTorrent, arr: Arr):
     # Consider removing this and always streaming
@@ -395,14 +400,14 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                                         # cancelRefreshRequest = requests.delete(refreshEndpoint, headers={'Accept': 'application/json'})
                                         # refreshRequest = requests.get(refreshEndpoint, headers={'Accept': 'application/json'})
                                 
-                                # refreshEndpoint = f"{plex['serverHost']}/library/sections/{plex['serverMovieLibraryId'] if isRadarr else plex['serverTvShowLibraryId']}/refresh?X-Plex-Token={plex['serverApiKey']}"
-                                # cancelRefreshRequest = requests.delete(refreshEndpoint, headers={'Accept': 'application/json'})
-                                # refreshRequest = requests.get(refreshEndpoint, headers={'Accept': 'application/json'})
-                                arr.refreshMonitoredDownloads()
-
                                 print('Refreshed')
                                 discordUpdate(f"Sucessfully processed {file.fileInfo.filenameWithoutExt}", f"Now available for immediate consumption! existsCount: {existsCount}")
                                 
+                                # refreshEndpoint = f"{plex['serverHost']}/library/sections/{plex['serverMovieLibraryId'] if isRadarr else plex['serverTvShowLibraryId']}/refresh?X-Plex-Token={plex['serverApiKey']}"
+                                # cancelRefreshRequest = requests.delete(refreshEndpoint, headers={'Accept': 'application/json'})
+                                # refreshRequest = requests.get(refreshEndpoint, headers={'Accept': 'application/json'})
+                                await refreshArr(arr)
+
                                 # await asyncio.get_running_loop().run_in_executor(None, copyFiles, file, folderPathMountTorrent, arr)
                                 break
                             
