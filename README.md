@@ -112,7 +112,7 @@
 
 ### Additional Configuration for Zurg
 
-If you are using Zurg, ensure to set `retain_rd_torrent_name` to `true` in Zurg's `config.yml` to properly handle torrent names.
+If you are using Zurg, ensure `retain_folder_name_extension` is set to `true` in Zurg's `config.yml` to properly handle torrent names.
 
 ## Import Torrent Folder
 
