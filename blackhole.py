@@ -347,7 +347,8 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                         while existsCount <= blackhole['waitForTorrentTimeout']:
                             existsCount += 1
                             folderPathMountTorrent = os.path.join(blackhole['rdMountTorrentsPath'], info['filename'])
-                            if os.path.exists(folderPathMountTorrent) and os.listdir(folderPathMountTorrent):
+                            folderPathMountOriginalTorrent = os.path.join(blackhole['rdMountTorrentsPath'], info.get('original_filename', info['filename']))
+                            if (os.path.exists(folderPathMountTorrent) and os.listdir(folderPathMountTorrent)) or (os.path.exists(folderPathMountOriginalTorrent) and os.listdir(folderPathMountOriginalTorrent)):
                                 multiSeasonRegex1 = r'(?<=[\W_][Ss]eason[\W_])[\d][\W_][\d]{1,2}(?=[\W_])'
                                 multiSeasonRegex2 = r'(?<=[\W_][Ss])[\d]{2}[\W_][Ss]?[\d]{2}(?=[\W_])'
                                 multiSeasonRegexCombined = f'{multiSeasonRegex1}|{multiSeasonRegex2}'
