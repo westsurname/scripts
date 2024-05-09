@@ -140,6 +140,11 @@ class TorrentBase(ABC):
         info = self.getInfo()
         self.print('files:', info['files'])
         mediaFiles = [file for file in info['files'] if os.path.splitext(file['path'])[1] in mediaExtensions]
+        
+        if not mediaFiles:
+            self.print('no media files found')
+            return False
+
         mediaFileIds = {str(file['id']) for file in mediaFiles}
         self.print('required fileIds:', mediaFileIds)
         
@@ -351,11 +356,12 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                         existsCount = 0
                         print('Waiting for folders to refresh...')
 
-                        fileCount = len(info.get('files', []))
+                        filename = info.get('filename')
+                        originalFilename = info.get('original_filename')
 
-                        folderPathMountFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], info.get('filename'))
-                        folderPathMountOriginalFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], info.get('original_filename'))
-                        folderPathMountOriginalFilenameWithoutExtTorrent = os.path.join(blackhole['rdMountTorrentsPath'], os.path.splitext(info.get('original_filename'))[0])
+                        folderPathMountFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], filename)
+                        folderPathMountOriginalFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], originalFilename)
+                        folderPathMountOriginalFilenameWithoutExtTorrent = os.path.join(blackhole['rdMountTorrentsPath'], os.path.splitext(originalFilename)[0])
 
                         while existsCount <= blackhole['waitForTorrentTimeout']:
                             existsCount += 1
@@ -364,7 +370,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                                 folderPathMountTorrent = folderPathMountFilenameTorrent
                             elif os.path.exists(folderPathMountOriginalFilenameTorrent) and os.listdir(folderPathMountOriginalFilenameTorrent):
                                 folderPathMountTorrent = folderPathMountOriginalFilenameTorrent
-                            elif (fileCount == 1 and 
+                            elif (originalFilename.endswith(('.mkv', '.mp4')) and
                                   os.path.exists(folderPathMountOriginalFilenameWithoutExtTorrent) and os.listdir(folderPathMountOriginalFilenameWithoutExtTorrent)):
                                 folderPathMountTorrent = folderPathMountOriginalFilenameWithoutExtTorrent
                             else:
