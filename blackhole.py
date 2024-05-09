@@ -326,6 +326,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                     count += 1
                     info = torrent.getInfo(refresh=True)
                     status = info['status']
+                    
                     print('status:', status)
 
                     if status == 'waiting_files_selection':
@@ -349,12 +350,26 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                     elif status == 'downloaded':
                         existsCount = 0
                         print('Waiting for folders to refresh...')
+
+                        fileCount = len(info.get('files', []))
+
+                        folderPathMountFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], info.get('filename'))
+                        folderPathMountOriginalFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], info.get('original_filename'))
+                        folderPathMountOriginalFilenameWithoutExtTorrent = os.path.join(blackhole['rdMountTorrentsPath'], os.path.splitext(info.get('original_filename'))[0])
+
                         while existsCount <= blackhole['waitForTorrentTimeout']:
                             existsCount += 1
-                            folderPathMountFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], info.get('filename'))
-                            folderPathMountOriginalFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], info.get('original_filename'))
-                            folderPathMountTorrent = folderPathMountFilenameTorrent if os.path.exists(folderPathMountFilenameTorrent) and os.listdir(folderPathMountFilenameTorrent) else folderPathMountOriginalFilenameTorrent if os.path.exists(folderPathMountOriginalFilenameTorrent) and os.listdir(folderPathMountOriginalFilenameTorrent) else None
-                            
+                           
+                            if os.path.exists(folderPathMountFilenameTorrent) and os.listdir(folderPathMountFilenameTorrent):
+                                folderPathMountTorrent = folderPathMountFilenameTorrent
+                            elif os.path.exists(folderPathMountOriginalFilenameTorrent) and os.listdir(folderPathMountOriginalFilenameTorrent):
+                                folderPathMountTorrent = folderPathMountOriginalFilenameTorrent
+                            elif (fileCount == 1 and 
+                                  os.path.exists(folderPathMountOriginalFilenameWithoutExtTorrent) and os.listdir(folderPathMountOriginalFilenameWithoutExtTorrent)):
+                                folderPathMountTorrent = folderPathMountOriginalFilenameWithoutExtTorrent
+                            else:
+                                folderPathMountTorrent = None
+
                             if folderPathMountTorrent:
                                 multiSeasonRegex1 = r'(?<=[\W_][Ss]eason[\W_])[\d][\W_][\d]{1,2}(?=[\W_])'
                                 multiSeasonRegex2 = r'(?<=[\W_][Ss])[\d]{2}[\W_][Ss]?[\d]{2}(?=[\W_])'
