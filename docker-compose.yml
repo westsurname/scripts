@@ -13,6 +13,7 @@ services:
   blackhole:
     <<: *blackhole
     container_name: blackhole_service
+    image: blackhole
     environment:
       - BLACKHOLE_BASE_WATCH_PATH=/${BLACKHOLE_BASE_WATCH_PATH}
     volumes:
@@ -24,6 +25,7 @@ services:
   blackhole_4k:
     <<: *blackhole
     container_name: blackhole_4k_service
+    image: blackhole_4k
     environment:
       - SONARR_HOST=${SONARR_HOST_4K}
       - SONARR_API_KEY=${SONARR_API_KEY_4K}
@@ -41,6 +43,7 @@ services:
       context: .
       dockerfile: Dockerfile.watchlist
     container_name: watchlist_service
+    image: watchlist
     volumes:
       - ./shared/tokens.json:/app/shared/tokens.json
     env_file:
@@ -53,6 +56,7 @@ services:
       context: .
       dockerfile: Dockerfile.plex_authentication
     container_name: plex_authentication_service
+    image: plex_authentication
     volumes:
       - ./shared/tokens.json:/app/shared/tokens.json
     ports:
@@ -69,6 +73,7 @@ services:
       context: .
       dockerfile: Dockerfile.plex_request
     container_name: plex_request_service
+    image: plex_request
     volumes:
       - ./shared/tokens.json:/app/shared/tokens.json
     ports:
