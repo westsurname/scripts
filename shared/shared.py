@@ -19,12 +19,12 @@ watchlist = {
 }
 
 blackhole = {
+    'rdMountTorrentsPath': env.string('BLACKHOLE_RD_MOUNT_TORRENTS_PATH'),
     'baseWatchPath': env.string('BLACKHOLE_BASE_WATCH_PATH'),
     'radarrPath': env.string('BLACKHOLE_RADARR_PATH'),
     'sonarrPath': env.string('BLACKHOLE_SONARR_PATH'),
     'failIfNotCached': env.bool('BLACKHOLE_FAIL_IF_NOT_CACHED'),
     'rdMountRefreshSeconds': env.int('BLACKHOLE_RD_MOUNT_REFRESH_SECONDS'),
-    'rdMountTorrentsPath': env.string('BLACKHOLE_RD_MOUNT_TORRENTS_PATH'),
     'waitForTorrentTimeout': env.int('BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT'),
     'historyPageSize': env.int('BLACKHOLE_HISTORY_PAGE_SIZE'),
 }
