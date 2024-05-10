@@ -110,10 +110,6 @@
     python3 python_watcher.py
     ```
 
-### Additional Configuration for Zurg
-
-If you are using Zurg, ensure `retain_folder_name_extension` is set to `true` in Zurg's `config.yml` to properly handle torrent names.
-
 ## Import Torrent Folder
 
 ### Usage
