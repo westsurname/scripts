@@ -1,5 +1,12 @@
 from discord_webhook import DiscordWebhook, DiscordEmbed
-from shared.shared import discord
+from shared.shared import discord, checkRequiredEnvs
+
+requiredEnvs = {
+    'Discord webhook URL': discord['webhookUrl']
+}
+
+if discord['enabled'] or discord['updateEnabled']:
+    checkRequiredEnvs(requiredEnvs)
 
 def discordError(title, message=None):
     if discord['enabled']:

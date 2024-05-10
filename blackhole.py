@@ -13,7 +13,7 @@ from datetime import datetime
 from werkzeug.utils import cached_property
 from abc import ABC, abstractmethod
 from shared.discord import discordError, discordUpdate
-from shared.shared import realdebrid, blackhole, plex, mediaExtensions
+from shared.shared import realdebrid, blackhole, plex, mediaExtensions, checkRequiredEnvs
 from shared.arr import Arr, Radarr, Sonarr
 
 rdHost = realdebrid['host']
@@ -24,6 +24,16 @@ _print = print
 def print(*values: object):
     _print(f"[{datetime.now()}]", *values)
 
+requiredEnvs = {
+    'RealDebrid host': realdebrid['host'],
+    'RealDebrid API key': realdebrid['apiKey'],
+    'Blackhole base watch path': blackhole['baseWatchPath'],
+    'Blackhole Radarr path': blackhole['radarrPath'],
+    'Blackhole Sonarr path': blackhole['sonarrPath'],
+    'Blackhole RealDebrid mount torrents path': blackhole['rdMountTorrentsPath']
+}
+
+checkRequiredEnvs(requiredEnvs)
 
 class TorrentFileInfo():
     class FileInfo():
@@ -152,17 +162,18 @@ class TorrentBase(ABC):
         largestMediaFileId = str(largestMediaFile['id'])
         self.print('only largest file:', self.onlyLargestFile)
         self.print('largest file:', largestMediaFile)
-        if self.onlyLargestFile and len(mediaFiles) > 1:
-            discordUpdate('largest file:', largestMediaFile['path'])
 
         if self.failIfNotCached and not self.incompatibleHashSize:
             targetFileIds = {largestMediaFileId} if self.onlyLargestFile else mediaFileIds
             if not any(set(fileGroup.keys()) == targetFileIds for fileGroup in self._instantAvailability):
-                extraFilesGroup = next(fileGroup for fileGroup in self._instantAvailability if largestMediaFileId in fileGroup.keys())
+                extraFilesGroup = next((fileGroup for fileGroup in self._instantAvailability if largestMediaFileId in fileGroup.keys()), None)
                 if self.onlyLargestFile and extraFilesGroup:
                     self.print('extra files required for cache:', extraFilesGroup)
                     discordUpdate('Extra files required for cache:', extraFilesGroup)
                 return False
+            
+        if self.onlyLargestFile and len(mediaFiles) > 1:
+            discordUpdate('largest file:', largestMediaFile['path'])
                 
         files = {'files': [largestMediaFileId] if self.onlyLargestFile else ','.join(mediaFileIds)}
         selectFilesRequest = requests.post(f"{rdHost}torrents/selectFiles/{self.id}?auth_token={authToken}", data=files)

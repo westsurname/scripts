@@ -1,8 +1,16 @@
 from abc import ABC, abstractmethod
 from typing import Type, List
 import requests
+from shared.shared import sonarr, radarr, checkRequiredEnvs
 
-from shared.shared import sonarr, radarr
+requiredEnvs = {
+    'Sonarr host': sonarr['host'],
+    'Sonarr API key': sonarr['apiKey'],
+    'Radarr host': radarr['host'],
+    'Radarr API key': radarr['apiKey']
+}
+
+checkRequiredEnvs(requiredEnvs)
 
 class Media(ABC):
     def __init__(self, json) -> None:
