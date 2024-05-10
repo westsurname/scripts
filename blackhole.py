@@ -27,10 +27,10 @@ def print(*values: object):
 requiredEnvs = {
     'RealDebrid host': realdebrid['host'],
     'RealDebrid API key': realdebrid['apiKey'],
-    'Blackhole RealDebrid mount torrents path': blackhole['rdMountTorrentsPath']
+    'Blackhole RealDebrid mount torrents path': blackhole['rdMountTorrentsPath'],
     'Blackhole base watch path': blackhole['baseWatchPath'],
     'Blackhole Radarr path': blackhole['radarrPath'],
-    'Blackhole Sonarr path': blackhole['sonarrPath'],
+    'Blackhole Sonarr path': blackhole['sonarrPath']
 }
 
 checkRequiredEnvs(requiredEnvs)
