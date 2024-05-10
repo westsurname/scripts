@@ -13,7 +13,7 @@ from datetime import datetime
 from werkzeug.utils import cached_property
 from abc import ABC, abstractmethod
 from shared.discord import discordError, discordUpdate
-from shared.shared import realdebrid, blackhole, plex, mediaExtensions
+from shared.shared import realdebrid, blackhole, plex, mediaExtensions, checkRequiredEnvs
 from shared.arr import Arr, Radarr, Sonarr
 
 rdHost = realdebrid['host']
@@ -24,6 +24,16 @@ _print = print
 def print(*values: object):
     _print(f"[{datetime.now()}]", *values)
 
+requiredEnvs = {
+    'RealDebrid host': realdebrid['host'],
+    'RealDebrid API key': realdebrid['apiKey'],
+    'Blackhole RealDebrid mount torrents path': blackhole['rdMountTorrentsPath'],
+    'Blackhole base watch path': blackhole['baseWatchPath'],
+    'Blackhole Radarr path': blackhole['radarrPath'],
+    'Blackhole Sonarr path': blackhole['sonarrPath']
+}
+
+checkRequiredEnvs(requiredEnvs)
 
 class TorrentFileInfo():
     class FileInfo():
@@ -140,6 +150,11 @@ class TorrentBase(ABC):
         info = self.getInfo()
         self.print('files:', info['files'])
         mediaFiles = [file for file in info['files'] if os.path.splitext(file['path'])[1] in mediaExtensions]
+        
+        if not mediaFiles:
+            self.print('no media files found')
+            return False
+
         mediaFileIds = {str(file['id']) for file in mediaFiles}
         self.print('required fileIds:', mediaFileIds)
         
@@ -147,17 +162,18 @@ class TorrentBase(ABC):
         largestMediaFileId = str(largestMediaFile['id'])
         self.print('only largest file:', self.onlyLargestFile)
         self.print('largest file:', largestMediaFile)
-        if self.onlyLargestFile and len(mediaFiles) > 1:
-            discordUpdate('largest file:', largestMediaFile['path'])
 
         if self.failIfNotCached and not self.incompatibleHashSize:
             targetFileIds = {largestMediaFileId} if self.onlyLargestFile else mediaFileIds
             if not any(set(fileGroup.keys()) == targetFileIds for fileGroup in self._instantAvailability):
-                extraFilesGroup = next(fileGroup for fileGroup in self._instantAvailability if largestMediaFileId in fileGroup.keys())
+                extraFilesGroup = next((fileGroup for fileGroup in self._instantAvailability if largestMediaFileId in fileGroup.keys()), None)
                 if self.onlyLargestFile and extraFilesGroup:
                     self.print('extra files required for cache:', extraFilesGroup)
                     discordUpdate('Extra files required for cache:', extraFilesGroup)
                 return False
+            
+        if self.onlyLargestFile and len(mediaFiles) > 1:
+            discordUpdate('largest file:', largestMediaFile['path'])
                 
         files = {'files': [largestMediaFileId] if self.onlyLargestFile else ','.join(mediaFileIds)}
         selectFilesRequest = requests.post(f"{rdHost}torrents/selectFiles/{self.id}?auth_token={authToken}", data=files)
@@ -209,10 +225,18 @@ class Magnet(TorrentBase):
 
         return self.id
 
-def getPath(isRadarr):
+def getPath(isRadarr, create=False):
     baseWatchPath = blackhole['baseWatchPath']
     absoluteBaseWatchPath = baseWatchPath if os.path.isabs(baseWatchPath) else os.path.abspath(baseWatchPath)
-    return os.path.join(absoluteBaseWatchPath, blackhole['radarrPath'] if isRadarr else blackhole['sonarrPath'])
+    finalPath = os.path.join(absoluteBaseWatchPath, blackhole['radarrPath'] if isRadarr else blackhole['sonarrPath'])
+
+    if create:
+        for sub_path in ['', 'processing', 'completed']:
+            path_to_check = os.path.join(finalPath, sub_path)
+            if not os.path.exists(path_to_check):
+                os.makedirs(path_to_check)
+        
+    return finalPath
 
 # From Radarr Radarr/src/NzbDrone.Core/Organizer/FileNameBuilder.cs
 def cleanFileName(name):
@@ -225,6 +249,11 @@ def cleanFileName(name):
     
     return result.strip()
 
+async def refreshArr(arr: Arr, count=60):
+    # TODO: Change to refresh until found/imported
+    for _ in range(count):
+        arr.refreshMonitoredDownloads()
+        await asyncio.sleep(1)
 
 def copyFiles(file: TorrentFileInfo, folderPathMountTorrent, arr: Arr):
     # Consider removing this and always streaming
@@ -313,6 +342,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                     count += 1
                     info = torrent.getInfo(refresh=True)
                     status = info['status']
+                    
                     print('status:', status)
 
                     if status == 'waiting_files_selection':
@@ -324,7 +354,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                         # Send progress to arr
                         progress = info['progress']
                         print(progress)
-                        if torrent.incompatibleHashSize:
+                        if torrent.incompatibleHashSize and torrent.failIfNotCached:
                             print("Non-cached incompatible hash sized torrent")
                             torrent.delete()
                             fail(torrent)
@@ -336,10 +366,28 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                     elif status == 'downloaded':
                         existsCount = 0
                         print('Waiting for folders to refresh...')
+
+                        filename = info.get('filename')
+                        originalFilename = info.get('original_filename')
+
+                        folderPathMountFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], filename)
+                        folderPathMountOriginalFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], originalFilename)
+                        folderPathMountOriginalFilenameWithoutExtTorrent = os.path.join(blackhole['rdMountTorrentsPath'], os.path.splitext(originalFilename)[0])
+
                         while existsCount <= blackhole['waitForTorrentTimeout']:
                             existsCount += 1
-                            folderPathMountTorrent = os.path.join(blackhole['rdMountTorrentsPath'], info['filename'])
-                            if os.path.exists(folderPathMountTorrent) and os.listdir(folderPathMountTorrent):
+                           
+                            if os.path.exists(folderPathMountFilenameTorrent) and os.listdir(folderPathMountFilenameTorrent):
+                                folderPathMountTorrent = folderPathMountFilenameTorrent
+                            elif os.path.exists(folderPathMountOriginalFilenameTorrent) and os.listdir(folderPathMountOriginalFilenameTorrent):
+                                folderPathMountTorrent = folderPathMountOriginalFilenameTorrent
+                            elif (originalFilename.endswith(('.mkv', '.mp4')) and
+                                  os.path.exists(folderPathMountOriginalFilenameWithoutExtTorrent) and os.listdir(folderPathMountOriginalFilenameWithoutExtTorrent)):
+                                folderPathMountTorrent = folderPathMountOriginalFilenameWithoutExtTorrent
+                            else:
+                                folderPathMountTorrent = None
+
+                            if folderPathMountTorrent:
                                 multiSeasonRegex1 = r'(?<=[\W_][Ss]eason[\W_])[\d][\W_][\d]{1,2}(?=[\W_])'
                                 multiSeasonRegex2 = r'(?<=[\W_][Ss])[\d]{2}[\W_][Ss]?[\d]{2}(?=[\W_])'
                                 multiSeasonRegexCombined = f'{multiSeasonRegex1}|{multiSeasonRegex2}'
@@ -384,14 +432,14 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                                         # cancelRefreshRequest = requests.delete(refreshEndpoint, headers={'Accept': 'application/json'})
                                         # refreshRequest = requests.get(refreshEndpoint, headers={'Accept': 'application/json'})
                                 
-                                # refreshEndpoint = f"{plex['serverHost']}/library/sections/{plex['serverMovieLibraryId'] if isRadarr else plex['serverTvShowLibraryId']}/refresh?X-Plex-Token={plex['serverApiKey']}"
-                                # cancelRefreshRequest = requests.delete(refreshEndpoint, headers={'Accept': 'application/json'})
-                                # refreshRequest = requests.get(refreshEndpoint, headers={'Accept': 'application/json'})
-                                arr.refreshMonitoredDownloads()
-
                                 print('Refreshed')
                                 discordUpdate(f"Sucessfully processed {file.fileInfo.filenameWithoutExt}", f"Now available for immediate consumption! existsCount: {existsCount}")
                                 
+                                # refreshEndpoint = f"{plex['serverHost']}/library/sections/{plex['serverMovieLibraryId'] if isRadarr else plex['serverTvShowLibraryId']}/refresh?X-Plex-Token={plex['serverApiKey']}"
+                                # cancelRefreshRequest = requests.delete(refreshEndpoint, headers={'Accept': 'application/json'})
+                                # refreshRequest = requests.get(refreshEndpoint, headers={'Accept': 'application/json'})
+                                await refreshArr(arr)
+
                                 # await asyncio.get_running_loop().run_in_executor(None, copyFiles, file, folderPathMountTorrent, arr)
                                 break
                             
@@ -402,13 +450,14 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                             await asyncio.sleep(1)
                         break
                 
-                    if count == 21:
-                        print('infoCount > 20')
-                        discordError(f"{file.fileInfo.filenameWithoutExt} info attempt count > 20", status)
-                    elif count == blackhole['waitForTorrentTimeout']:
-                        print('infoCount == 60 - Failing')
-                        fail(torrent)
-                        break
+                    if torrent.failIfNotCached:
+                        if count == 21:
+                            print('infoCount > 20')
+                            discordError(f"{file.fileInfo.filenameWithoutExt} info attempt count > 20", status)
+                        elif count == blackhole['waitForTorrentTimeout']:
+                            print('infoCount == 60 - Failing')
+                            fail(torrent)
+                            break
 
             os.remove(file.fileInfo.filePathProcessing)
     except:

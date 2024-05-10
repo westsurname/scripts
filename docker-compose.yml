@@ -1,26 +1,40 @@
 version: '3.8'
 
+x-blackhole: &blackhole
+  build: 
+    context: .
+    dockerfile: Dockerfile.blackhole
+  # user: "${PUID:-1000}:${PGID:-1000}"
+  env_file:
+    - .env
+  restart: unless-stopped
+
 services:
   blackhole:
-    build: 
-      context: .
-      dockerfile: Dockerfile.blackhole
-      # args:
-      #   BLACKHOLE_RD_MOUNT_TORRENTS_PATH_HOST: ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
-        # BLACKHOLE_RD_MOUNT_TORRENTS_PATH: /app/torrent-mount
+    <<: *blackhole
     container_name: blackhole_service
-    volumes:
-      - ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}:/app/torrent-mount
-      - ./blackhole/${BLACKHOLE_RADARR_PATH}:/app/blackhole/${BLACKHOLE_RADARR_PATH}
-      - ./blackhole/${BLACKHOLE_SONARR_PATH}:/app/blackhole/${BLACKHOLE_SONARR_PATH}
-      - ./logs:/app/logs
-    env_file:
-      - .env
     environment:
-      # - BLACKHOLE_RD_MOUNT_TORRENTS_PATH_HOST=${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
-      - BLACKHOLE_RD_MOUNT_TORRENTS_PATH=/app/torrent-mount
-    restart: unless-stopped
-    profiles: [blackhole, all]
+      - BLACKHOLE_BASE_WATCH_PATH=/${BLACKHOLE_BASE_WATCH_PATH}
+    volumes:
+      - ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}:${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
+      - ${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}:/${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}
+      - ${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}:/${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}
+    profiles: [blackhole, blackhole_all, all]
+
+  blackhole_4k:
+    <<: *blackhole
+    container_name: blackhole_4k_service
+    environment:
+      - SONARR_HOST=${SONARR_HOST_4K}
+      - SONARR_API_KEY=${SONARR_API_KEY_4K}
+      - RADARR_HOST=${RADARR_HOST_4K}
+      - RADARR_API_KEY=${RADARR_API_KEY_4K}
+      - BLACKHOLE_BASE_WATCH_PATH=/${BLACKHOLE_BASE_WATCH_PATH}
+    volumes:
+      - ${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}:${BLACKHOLE_RD_MOUNT_TORRENTS_PATH}
+      - ${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH} 4k:${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}
+      - ${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH} 4k:${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}
+    profiles: [blackhole_4k, blackhole_all, all]
 
   watchlist:
     build: 

@@ -7,7 +7,7 @@ class BlackholeHandler(FileSystemEventHandler):
         super().__init__()
         self.is_processing = False
         self.is_radarr = is_radarr
-        self.path_name = getPath(is_radarr)
+        self.path_name = getPath(is_radarr, create=True)
 
     def on_created(self, event):
         if not self.is_processing and not event.is_directory and event.src_path.lower().endswith((".torrent", ".magnet")):
