@@ -18,13 +18,13 @@ jobs:
       matrix:
         include:
           - dockerfile: ./Dockerfile.blackhole
-            image: ghcr.io/${{ github.repository_owner }}/blackhole
+            image: ghcr.io/${{ github.repository }}/blackhole
           - dockerfile: ./Dockerfile.watchlist
-            image: ghcr.io/${{ github.repository_owner }}/watchlist
+            image: ghcr.io/${{ github.repository }}/watchlist
           - dockerfile: ./Dockerfile.plex_authentication
-            image: ghcr.io/${{ github.repository_owner }}/plex_authentication
+            image: ghcr.io/${{ github.repository }}/plex_authentication
           - dockerfile: ./Dockerfile.plex_request
-            image: ghcr.io/${{ github.repository_owner }}/plex_request
+            image: ghcr.io/${{ github.repository }}/plex_request
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
