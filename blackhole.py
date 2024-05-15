@@ -58,9 +58,9 @@ requiredEnvs = {
     'RealDebrid host': (realdebrid['host'], validateRealdebridHost),
     'RealDebrid API key': (realdebrid['apiKey'], validateRealdebridApiKey, True),
     'Blackhole RealDebrid mount torrents path': (blackhole['rdMountTorrentsPath'], validateMountTorrentsPath),
-    'Blackhole base watch path': (blackhole['baseWatchPath']),
-    'Blackhole Radarr path': (blackhole['radarrPath']),
-    'Blackhole Sonarr path': (blackhole['sonarrPath'])
+    'Blackhole base watch path': (blackhole['baseWatchPath'],),
+    'Blackhole Radarr path': (blackhole['radarrPath'],),
+    'Blackhole Sonarr path': (blackhole['sonarrPath'],)
 }
 
 checkRequiredEnvs(requiredEnvs)
