@@ -172,7 +172,7 @@ def checkRequiredEnvs(requiredEnvs):
     for envName, envProps in requiredEnvs.items():
         envValue, validate, requiresPreviousSuccess = unpackEnvProps(envProps)
         
-        if envValue is None:
+        if envValue is None or envValue == "":
             print(f"Error: {envName} is missing. Please check your .env file.")
             previousSuccess = False
         elif (previousSuccess or not requiresPreviousSuccess) and validate:
