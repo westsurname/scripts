@@ -13,69 +13,69 @@ def stringEnvParser(value):
     return value
 
 watchlist = {
-    'plexProduct': env.string('WATCHLIST_PLEX_PRODUCT'),
-    'plexVersion': env.string('WATCHLIST_PLEX_VERSION'),
-    'plexClientIdentifier': env.string('WATCHLIST_PLEX_CLIENT_IDENTIFIER')
+    'plexProduct': env.string('WATCHLIST_PLEX_PRODUCT', default=None),
+    'plexVersion': env.string('WATCHLIST_PLEX_VERSION', default=None),
+    'plexClientIdentifier': env.string('WATCHLIST_PLEX_CLIENT_IDENTIFIER', default=None)
 }
 
 blackhole = {
-    'rdMountTorrentsPath': env.string('BLACKHOLE_RD_MOUNT_TORRENTS_PATH'),
-    'baseWatchPath': env.string('BLACKHOLE_BASE_WATCH_PATH'),
-    'radarrPath': env.string('BLACKHOLE_RADARR_PATH'),
-    'sonarrPath': env.string('BLACKHOLE_SONARR_PATH'),
-    'failIfNotCached': env.bool('BLACKHOLE_FAIL_IF_NOT_CACHED'),
-    'rdMountRefreshSeconds': env.int('BLACKHOLE_RD_MOUNT_REFRESH_SECONDS'),
-    'waitForTorrentTimeout': env.int('BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT'),
-    'historyPageSize': env.int('BLACKHOLE_HISTORY_PAGE_SIZE'),
+    'rdMountTorrentsPath': env.string('BLACKHOLE_RD_MOUNT_TORRENTS_PATH', default=None),
+    'baseWatchPath': env.string('BLACKHOLE_BASE_WATCH_PATH', default=None),
+    'radarrPath': env.string('BLACKHOLE_RADARR_PATH', default=None),
+    'sonarrPath': env.string('BLACKHOLE_SONARR_PATH', default=None),
+    'failIfNotCached': env.bool('BLACKHOLE_FAIL_IF_NOT_CACHED', default=None),
+    'rdMountRefreshSeconds': env.int('BLACKHOLE_RD_MOUNT_REFRESH_SECONDS', default=None),
+    'waitForTorrentTimeout': env.int('BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT', default=None),
+    'historyPageSize': env.int('BLACKHOLE_HISTORY_PAGE_SIZE', default=None),
 }
 
 server = {
-    'host': env.string('SERVER_DOMAIN') 
+    'host': env.string('SERVER_DOMAIN', default=None)
 }
 
 plex = {
-    'host': env.string('PLEX_HOST'),
-    'metadataHost': env.string('PLEX_METADATA_HOST'),
-    'serverHost': env.string('PLEX_SERVER_HOST'),
-    'serverMachineId': env.string('PLEX_SERVER_MACHINE_ID'),
-    'serverApiKey': env.string('PLEX_SERVER_API_KEY'),
-    'serverMovieLibraryId': env.string('PLEX_SERVER_MOVIE_LIBRARY_ID'),
-    'serverTvShowLibraryId': env.string('PLEX_SERVER_TV_SHOW_LIBRARY_ID')
+    'host': env.string('PLEX_HOST', default=None),
+    'metadataHost': env.string('PLEX_METADATA_HOST', default=None),
+    'serverHost': env.string('PLEX_SERVER_HOST', default=None),
+    'serverMachineId': env.string('PLEX_SERVER_MACHINE_ID', default=None),
+    'serverApiKey': env.string('PLEX_SERVER_API_KEY', default=None),
+    'serverMovieLibraryId': env.string('PLEX_SERVER_MOVIE_LIBRARY_ID', default=None),
+    'serverTvShowLibraryId': env.string('PLEX_SERVER_TV_SHOW_LIBRARY_ID', default=None)
 }
 
 overseerr = {
-    'host': env.string('OVERSEERR_HOST'),
-    'apiKey': env.string('OVERSEERR_API_KEY')
+    'host': env.string('OVERSEERR_HOST', default=None),
+    'apiKey': env.string('OVERSEERR_API_KEY', default=None)
 }
 
 sonarr = {
-    'host': env.string('SONARR_HOST'),
-    'apiKey': env.string('SONARR_API_KEY')
+    'host': env.string('SONARR_HOST', default=None),
+    'apiKey': env.string('SONARR_API_KEY', default=None)
 }
 
 radarr = {
-    'host': env.string('RADARR_HOST'),
-    'apiKey': env.string('RADARR_API_KEY')
+    'host': env.string('RADARR_HOST', default=None),
+    'apiKey': env.string('RADARR_API_KEY', default=None)
 }
 
 tautulli = {
-    'host': env.string('TAUTULLI_HOST'),
-    'apiKey': env.string('TAUTULLI_API_KEY')
+    'host': env.string('TAUTULLI_HOST', default=None),
+    'apiKey': env.string('TAUTULLI_API_KEY', default=None)
 }
 
 realdebrid = {
-    'host': env.string('REALDEBRID_HOST'),
-    'apiKey': env.string('REALDEBRID_API_KEY')
+    'host': env.string('REALDEBRID_HOST', default=None),
+    'apiKey': env.string('REALDEBRID_API_KEY', default=None)
 }
 
 trakt = {
-    'apiKey': env.string('TRAKT_API_KEY')
+    'apiKey': env.string('TRAKT_API_KEY', default=None)
 }
 
 discord = {
-    'enabled': env.bool('DISCORD_ENABLED'),
-    'updateEnabled': env.bool('DISCORD_UPDATE_ENABLED'),
-    'webhookUrl': env.string('DISCORD_WEBHOOK_URL')
+    'enabled': env.bool('DISCORD_ENABLED', default=None),
+    'updateEnabled': env.bool('DISCORD_UPDATE_ENABLED', default=None),
+    'webhookUrl': env.string('DISCORD_WEBHOOK_URL', default=None)
 }
 
 plexHeaders = {
