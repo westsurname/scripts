@@ -5,10 +5,11 @@ from environs import Env
 env = Env()
 env.read_env()
 
+default_pattern = r"<[a-z0-9_]+>"
+
 @env.parser_for("string")
 def stringEnvParser(value):
-    default_pattern = r"<[a-z0-9_]+>"
-    if re.match(default_pattern, value):
+    if value is not None and re.match(default_pattern, value):
         return None
     return value
 
@@ -159,5 +160,5 @@ def intersperse(arr1, arr2):
 
 def checkRequiredEnvs(requiredEnvs):
     for envName, envValue in requiredEnvs.items():
-        if not envValue:
+        if envValue is None:
             print(f"Error: {envName} is missing. Please check your .env file.")
