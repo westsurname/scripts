@@ -161,19 +161,27 @@ def intersperse(arr1, arr2):
 def ensureTuple(result):
     return result if isinstance(result, tuple) else (result, None)
 
+def unpackEnvProps(envProps):
+    envValue = envProps[0]
+    validate = envProps[1] if len(envProps) > 1 else None
+    requiresPreviousSuccess = envProps[2] if len(envProps) > 2 else False
+    return envValue, validate, requiresPreviousSuccess
+
 def checkRequiredEnvs(requiredEnvs):
     previousSuccess = True
-    for envName, (envValue, validate, requiresPreviousSuccess) in requiredEnvs.items():
+    for envName, envProps in requiredEnvs.items():
+        envValue, validate, requiresPreviousSuccess = unpackEnvProps(envProps)
+        
         if envValue is None:
             print(f"Error: {envName} is missing. Please check your .env file.")
             previousSuccess = False
         elif (previousSuccess or not requiresPreviousSuccess) and validate:
-                success, message = ensureTuple(validate())
-                if not success:
-                    print(f"Error: {envName} is invalid. {message or 'Please check your .env file.'}")
-                    previousSuccess = False
-                else:
-                    previousSuccess = True
+            success, message = ensureTuple(validate())
+            if not success:
+                print(f"Error: {envName} is invalid. {message or 'Please check your .env file.'}")
+                previousSuccess = False
+            else:
+                previousSuccess = True
         else:
             previousSuccess = True
 

@@ -42,9 +42,9 @@ def validateRadarrApiKey():
     return True
 requiredEnvs = {
     'Sonarr host': (sonarr['host'], validateSonarrHost),
-    'Sonarr API key': (sonarr['apiKey'], validateSonarrApiKey),
+    'Sonarr API key': (sonarr['apiKey'], validateSonarrApiKey, True),
     'Radarr host': (radarr['host'], validateRadarrHost),
-    'Radarr API key': (radarr['apiKey'], validateRadarrApiKey)
+    'Radarr API key': (radarr['apiKey'], validateRadarrApiKey, True)
 }
 
 checkRequiredEnvs(requiredEnvs)
