@@ -56,7 +56,7 @@ def validateMountTorrentsPath():
 
 requiredEnvs = {
     'RealDebrid host': (realdebrid['host'], validateRealdebridHost),
-    'RealDebrid API key': (realdebrid['apiKey'], validateRealdebridApiKey),
+    'RealDebrid API key': (realdebrid['apiKey'], validateRealdebridApiKey, True),
     'Blackhole RealDebrid mount torrents path': (blackhole['rdMountTorrentsPath'], validateMountTorrentsPath),
     'Blackhole base watch path': (blackhole['baseWatchPath'], None),
     'Blackhole Radarr path': (blackhole['radarrPath'], None),

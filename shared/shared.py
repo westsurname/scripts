@@ -162,11 +162,18 @@ def ensureTuple(result):
     return result if isinstance(result, tuple) else (result, None)
 
 def checkRequiredEnvs(requiredEnvs):
-    for envName, (envValue, validate) in requiredEnvs.items():
+    previousSuccess = True
+    for envName, (envValue, validate, requiresPreviousSuccess) in requiredEnvs.items():
         if envValue is None:
             print(f"Error: {envName} is missing. Please check your .env file.")
-        else:
-            if validate:
+            previousSuccess = False
+        elif (previousSuccess or not requiresPreviousSuccess) and validate:
                 success, message = ensureTuple(validate())
                 if not success:
                     print(f"Error: {envName} is invalid. {message or 'Please check your .env file.'}")
+                    previousSuccess = False
+                else:
+                    previousSuccess = True
+        else:
+            previousSuccess = True
+
