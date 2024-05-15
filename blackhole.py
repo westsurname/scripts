@@ -49,7 +49,10 @@ def validateRealdebridApiKey():
 
 def validateMountTorrentsPath():
     path = blackhole['rdMountTorrentsPath']
-    return os.path.exists(path)
+    if os.path.exists(path) and any(os.path.isdir(os.path.join(path, child)) for child in os.listdir(path)):
+        return True
+    else:
+        return False, "Path does not exist or has no children."
 
 requiredEnvs = {
     'RealDebrid host': (realdebrid['host'], validateRealdebridHost),
