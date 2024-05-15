@@ -3,11 +3,48 @@ from typing import Type, List
 import requests
 from shared.shared import sonarr, radarr, checkRequiredEnvs
 
+def validateSonarrHost():
+    url = f"{sonarr['host']}"
+    try:
+        response = requests.get(url)
+        return response.status_code == 200
+    except Exception as e:
+        return False
+
+def validateSonarrApiKey():
+    url = f"{sonarr['host']}/api/v3/system/status?apikey={sonarr['apiKey']}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 401:
+            return False, "Invalid or expired API key."
+    except Exception as e:
+        return False
+    
+    return True
+
+def validateRadarrHost():
+    url = f"{radarr['host']}"
+    try:
+        response = requests.get(url)
+        return response.status_code == 200
+    except Exception as e:
+        return False
+
+def validateRadarrApiKey():
+    url = f"{radarr['host']}/api/v3/system/status?apikey={radarr['apiKey']}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 401:
+            return False, "Invalid or expired API key."
+    except Exception as e:
+        return False
+    
+    return True
 requiredEnvs = {
-    'Sonarr host': sonarr['host'],
-    'Sonarr API key': sonarr['apiKey'],
-    'Radarr host': radarr['host'],
-    'Radarr API key': radarr['apiKey']
+    'Sonarr host': (sonarr['host'], validateSonarrHost),
+    'Sonarr API key': (sonarr['apiKey'], validateSonarrApiKey, True),
+    'Radarr host': (radarr['host'], validateRadarrHost),
+    'Radarr API key': (radarr['apiKey'], validateRadarrApiKey, True)
 }
 
 checkRequiredEnvs(requiredEnvs)

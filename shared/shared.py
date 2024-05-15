@@ -5,77 +5,78 @@ from environs import Env
 env = Env()
 env.read_env()
 
+default_pattern = r"<[a-z0-9_]+>"
+
 @env.parser_for("string")
 def stringEnvParser(value):
-    default_pattern = r"<[a-z0-9_]+>"
-    if re.match(default_pattern, value):
+    if value is not None and re.match(default_pattern, value):
         return None
     return value
 
 watchlist = {
-    'plexProduct': env.string('WATCHLIST_PLEX_PRODUCT'),
-    'plexVersion': env.string('WATCHLIST_PLEX_VERSION'),
-    'plexClientIdentifier': env.string('WATCHLIST_PLEX_CLIENT_IDENTIFIER')
+    'plexProduct': env.string('WATCHLIST_PLEX_PRODUCT', default=None),
+    'plexVersion': env.string('WATCHLIST_PLEX_VERSION', default=None),
+    'plexClientIdentifier': env.string('WATCHLIST_PLEX_CLIENT_IDENTIFIER', default=None)
 }
 
 blackhole = {
-    'rdMountTorrentsPath': env.string('BLACKHOLE_RD_MOUNT_TORRENTS_PATH'),
-    'baseWatchPath': env.string('BLACKHOLE_BASE_WATCH_PATH'),
-    'radarrPath': env.string('BLACKHOLE_RADARR_PATH'),
-    'sonarrPath': env.string('BLACKHOLE_SONARR_PATH'),
-    'failIfNotCached': env.bool('BLACKHOLE_FAIL_IF_NOT_CACHED'),
-    'rdMountRefreshSeconds': env.int('BLACKHOLE_RD_MOUNT_REFRESH_SECONDS'),
-    'waitForTorrentTimeout': env.int('BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT'),
-    'historyPageSize': env.int('BLACKHOLE_HISTORY_PAGE_SIZE'),
+    'rdMountTorrentsPath': env.string('BLACKHOLE_RD_MOUNT_TORRENTS_PATH', default=None),
+    'baseWatchPath': env.string('BLACKHOLE_BASE_WATCH_PATH', default=None),
+    'radarrPath': env.string('BLACKHOLE_RADARR_PATH', default=None),
+    'sonarrPath': env.string('BLACKHOLE_SONARR_PATH', default=None),
+    'failIfNotCached': env.bool('BLACKHOLE_FAIL_IF_NOT_CACHED', default=None),
+    'rdMountRefreshSeconds': env.int('BLACKHOLE_RD_MOUNT_REFRESH_SECONDS', default=None),
+    'waitForTorrentTimeout': env.int('BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT', default=None),
+    'historyPageSize': env.int('BLACKHOLE_HISTORY_PAGE_SIZE', default=None),
 }
 
 server = {
-    'host': env.string('SERVER_DOMAIN') 
+    'host': env.string('SERVER_DOMAIN', default=None)
 }
 
 plex = {
-    'host': env.string('PLEX_HOST'),
-    'metadataHost': env.string('PLEX_METADATA_HOST'),
-    'serverHost': env.string('PLEX_SERVER_HOST'),
-    'serverMachineId': env.string('PLEX_SERVER_MACHINE_ID'),
-    'serverApiKey': env.string('PLEX_SERVER_API_KEY'),
-    'serverMovieLibraryId': env.string('PLEX_SERVER_MOVIE_LIBRARY_ID'),
-    'serverTvShowLibraryId': env.string('PLEX_SERVER_TV_SHOW_LIBRARY_ID')
+    'host': env.string('PLEX_HOST', default=None),
+    'metadataHost': env.string('PLEX_METADATA_HOST', default=None),
+    'serverHost': env.string('PLEX_SERVER_HOST', default=None),
+    'serverMachineId': env.string('PLEX_SERVER_MACHINE_ID', default=None),
+    'serverApiKey': env.string('PLEX_SERVER_API_KEY', default=None),
+    'serverMovieLibraryId': env.string('PLEX_SERVER_MOVIE_LIBRARY_ID', default=None),
+    'serverTvShowLibraryId': env.string('PLEX_SERVER_TV_SHOW_LIBRARY_ID', default=None)
 }
 
 overseerr = {
-    'host': env.string('OVERSEERR_HOST'),
-    'apiKey': env.string('OVERSEERR_API_KEY')
+    'host': env.string('OVERSEERR_HOST', default=None),
+    'apiKey': env.string('OVERSEERR_API_KEY', default=None)
 }
 
 sonarr = {
-    'host': env.string('SONARR_HOST'),
-    'apiKey': env.string('SONARR_API_KEY')
+    'host': env.string('SONARR_HOST', default=None),
+    'apiKey': env.string('SONARR_API_KEY', default=None)
 }
 
 radarr = {
-    'host': env.string('RADARR_HOST'),
-    'apiKey': env.string('RADARR_API_KEY')
+    'host': env.string('RADARR_HOST', default=None),
+    'apiKey': env.string('RADARR_API_KEY', default=None)
 }
 
 tautulli = {
-    'host': env.string('TAUTULLI_HOST'),
-    'apiKey': env.string('TAUTULLI_API_KEY')
+    'host': env.string('TAUTULLI_HOST', default=None),
+    'apiKey': env.string('TAUTULLI_API_KEY', default=None)
 }
 
 realdebrid = {
-    'host': env.string('REALDEBRID_HOST'),
-    'apiKey': env.string('REALDEBRID_API_KEY')
+    'host': env.string('REALDEBRID_HOST', default=None),
+    'apiKey': env.string('REALDEBRID_API_KEY', default=None)
 }
 
 trakt = {
-    'apiKey': env.string('TRAKT_API_KEY')
+    'apiKey': env.string('TRAKT_API_KEY', default=None)
 }
 
 discord = {
-    'enabled': env.bool('DISCORD_ENABLED'),
-    'updateEnabled': env.bool('DISCORD_UPDATE_ENABLED'),
-    'webhookUrl': env.string('DISCORD_WEBHOOK_URL')
+    'enabled': env.bool('DISCORD_ENABLED', default=None),
+    'updateEnabled': env.bool('DISCORD_UPDATE_ENABLED', default=None),
+    'webhookUrl': env.string('DISCORD_WEBHOOK_URL', default=None)
 }
 
 plexHeaders = {
@@ -157,7 +158,30 @@ def intersperse(arr1, arr2):
         yield arr2[j]
         j += 1
 
+def ensureTuple(result):
+    return result if isinstance(result, tuple) else (result, None)
+
+def unpackEnvProps(envProps):
+    envValue = envProps[0]
+    validate = envProps[1] if len(envProps) > 1 else None
+    requiresPreviousSuccess = envProps[2] if len(envProps) > 2 else False
+    return envValue, validate, requiresPreviousSuccess
+
 def checkRequiredEnvs(requiredEnvs):
-    for envName, envValue in requiredEnvs.items():
-        if not envValue:
+    previousSuccess = True
+    for envName, envProps in requiredEnvs.items():
+        envValue, validate, requiresPreviousSuccess = unpackEnvProps(envProps)
+        
+        if envValue is None or envValue == "":
             print(f"Error: {envName} is missing. Please check your .env file.")
+            previousSuccess = False
+        elif (previousSuccess or not requiresPreviousSuccess) and validate:
+            success, message = ensureTuple(validate())
+            if not success:
+                print(f"Error: {envName} is invalid. {message or 'Please check your .env file.'}")
+                previousSuccess = False
+            else:
+                previousSuccess = True
+        else:
+            previousSuccess = True
+

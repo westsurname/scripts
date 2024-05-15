@@ -24,13 +24,43 @@ _print = print
 def print(*values: object):
     _print(f"[{datetime.now()}]", *values)
 
+
+def validateRealdebridHost():
+    url = f"{realdebrid['host']}/time"
+    try:
+        response = requests.get(url)
+        return response.status_code == 200
+    except Exception as e:
+        return False
+    
+def validateRealdebridApiKey():
+    url = f"{realdebrid['host']}/user?auth_token={authToken}"
+    try:
+        response = requests.get(url)
+        
+        if response.status_code == 401:
+            return False, "Invalid or expired API key."
+        elif response.status_code == 403:
+            return False, "Permission denied, account locked."
+    except Exception as e:
+        return False
+    
+    return True
+
+def validateMountTorrentsPath():
+    path = blackhole['rdMountTorrentsPath']
+    if os.path.exists(path) and any(os.path.isdir(os.path.join(path, child)) for child in os.listdir(path)):
+        return True
+    else:
+        return False, "Path does not exist or has no children."
+
 requiredEnvs = {
-    'RealDebrid host': realdebrid['host'],
-    'RealDebrid API key': realdebrid['apiKey'],
-    'Blackhole RealDebrid mount torrents path': blackhole['rdMountTorrentsPath'],
-    'Blackhole base watch path': blackhole['baseWatchPath'],
-    'Blackhole Radarr path': blackhole['radarrPath'],
-    'Blackhole Sonarr path': blackhole['sonarrPath']
+    'RealDebrid host': (realdebrid['host'], validateRealdebridHost),
+    'RealDebrid API key': (realdebrid['apiKey'], validateRealdebridApiKey, True),
+    'Blackhole RealDebrid mount torrents path': (blackhole['rdMountTorrentsPath'], validateMountTorrentsPath),
+    'Blackhole base watch path': (blackhole['baseWatchPath'],),
+    'Blackhole Radarr path': (blackhole['radarrPath'],),
+    'Blackhole Sonarr path': (blackhole['sonarrPath'],)
 }
 
 checkRequiredEnvs(requiredEnvs)

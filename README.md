@@ -67,12 +67,12 @@
      - `WATCHLIST_PLEX_CLIENT_IDENTIFIER`: A unique identifier for the Plex client.
 
    - **Blackhole** - Blackhole:
+     - `BLACKHOLE_RD_MOUNT_TORRENTS_PATH`: The path to the RealDebrid mounted torrents.
      - `BLACKHOLE_BASE_WATCH_PATH`: The base path for watched folders by the blackhole mechanism. Can be relative or absolute.
      - `BLACKHOLE_RADARR_PATH`: The path where torrent files will be dropped into by Radarr, relative to the base path.
      - `BLACKHOLE_SONARR_PATH`: The path where torrent files will be dropped into by Sonarr, relative to the base path.
      - `BLACKHOLE_FAIL_IF_NOT_CACHED`: Whether to fail operations if content is not cached.
      - `BLACKHOLE_RD_MOUNT_REFRESH_SECONDS`: How long to wait for the RealDebrid mount to refresh in seconds.
-     - `BLACKHOLE_RD_MOUNT_TORRENTS_PATH`: The path to the RealDebrid mounted torrents.
      - `BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT`: The timeout in seconds to wait for a torrent to be successful before failing.
      - `BLACKHOLE_HISTORY_PAGE_SIZE`: The number of history items to pull at once when attempting to mark a download as failed.
 

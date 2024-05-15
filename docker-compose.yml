@@ -4,6 +4,7 @@ x-blackhole: &blackhole
   build: 
     context: .
     dockerfile: Dockerfile.blackhole
+  image: ghcr.io/westsurname/scripts/blackhole:latest
   # user: "${PUID:-1000}:${PGID:-1000}"
   env_file:
     - .env
@@ -41,6 +42,7 @@ services:
       context: .
       dockerfile: Dockerfile.watchlist
     container_name: watchlist_service
+    image: ghcr.io/westsurname/scripts/watchlist:latest
     volumes:
       - ./shared/tokens.json:/app/shared/tokens.json
     env_file:
@@ -53,6 +55,7 @@ services:
       context: .
       dockerfile: Dockerfile.plex_authentication
     container_name: plex_authentication_service
+    image: ghcr.io/westsurname/scripts/plex_authentication:latest
     volumes:
       - ./shared/tokens.json:/app/shared/tokens.json
     ports:
@@ -69,6 +72,7 @@ services:
       context: .
       dockerfile: Dockerfile.plex_request
     container_name: plex_request_service
+    image: ghcr.io/westsurname/scripts/plex_request:latest
     volumes:
       - ./shared/tokens.json:/app/shared/tokens.json
     ports:
