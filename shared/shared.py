@@ -159,6 +159,10 @@ def intersperse(arr1, arr2):
         j += 1
 
 def checkRequiredEnvs(requiredEnvs):
-    for envName, envValue in requiredEnvs.items():
+    for envName, (envValue, validate) in requiredEnvs.items():
         if envValue is None:
             print(f"Error: {envName} is missing. Please check your .env file.")
+        if validate:
+            success, message = validate()
+            if not success:
+                print(f"Error: {envName} is invalid. {message or 'Please check your .env file.'}")
