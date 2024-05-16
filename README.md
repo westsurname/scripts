@@ -45,10 +45,12 @@
    - **Sonarr** - Blackhole, Repair, Move Media to Directory, Reclaim Space, Add Next Episode:
      - `SONARR_HOST`: The host address of your Sonarr instance.
      - `SONARR_API_KEY`: The API key for accessing Sonarr.
+     - `SONARR_ROOT_FOLDER`: The root folder path for Sonarr media files. (Required for repair compose service only)
 
    - **Radarr** - Blackhole, Repair, Move Media to Directory, Reclaim Space:
      - `RADARR_HOST`: The host address of your Radarr instance.
      - `RADARR_API_KEY`: The API key for accessing Radarr.
+     - `RADARR_ROOT_FOLDER`: The root folder path for Radarr media files. (Required for repair compose service only)
 
    - **Tautulli** - Reclaim Space:
      - `TAUTULLI_HOST`: The host address of your Tautulli instance.
@@ -80,6 +82,10 @@
      - `DISCORD_ENABLED`: Set to `true` to enable Discord error notifications.
      - `DISCORD_UPDATE_ENABLED`: Set to `true` to enable update notifications as well on Discord.
      - `DISCORD_WEBHOOK_URL`: The Discord webhook URL for sending notifications.
+
+   - **Repair** - Repair:
+     - `REPAIR_REPAIR_INTERVAL`: The interval in smart format (e.g., '1h2m3s') to wait between repairing each media file.
+     - `REPAIR_RUN_INTERVAL`: The interval in smart format (e.g., '1w2d3h4m5s') to run the repair process.
 
    - **General Configuration**:
     - `PYTHONUNBUFFERED`: Set to `TRUE` to ensure Python output is displayed in the logs in real-time.

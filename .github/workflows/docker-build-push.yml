@@ -25,6 +25,8 @@ jobs:
             image: ghcr.io/${{ github.repository }}/plex_authentication
           - dockerfile: ./Dockerfile.plex_request
             image: ghcr.io/${{ github.repository }}/plex_request
+          - dockerfile: ./Dockerfile.scripts
+            image: ghcr.io/${{ github.repository }}/scripts
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
