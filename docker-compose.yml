@@ -5,7 +5,7 @@ x-blackhole: &blackhole
     context: .
     dockerfile: Dockerfile.blackhole
   image: ghcr.io/westsurname/scripts/blackhole:latest
-  # user: "${PUID:-1000}:${PGID:-1000}"
+  user: "${PUID:-}${PGID:+:${PGID}}"
   env_file:
     - .env
   restart: unless-stopped
