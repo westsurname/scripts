@@ -79,6 +79,11 @@ discord = {
     'webhookUrl': env.string('DISCORD_WEBHOOK_URL', default=None)
 }
 
+repair = {
+    'repairInterval': env.string('REPAIR_REPAIR_INTERVAL', default=None),
+    'runInterval': env.string('REPAIR_RUN_INTERVAL', default=None)
+}
+
 plexHeaders = {
     'Accept': 'application/json',
     'X-Plex-Product': watchlist['plexProduct'],
