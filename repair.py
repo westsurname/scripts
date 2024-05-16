@@ -28,6 +28,11 @@ parser.add_argument('--repair-interval', type=str, default=repair['repairInterva
 parser.add_argument('--run-interval', type=str, default=repair['runInterval'], help='Optional interval in smart format (e.g. 1w2d3h4m5s) to run the repair process.')
 args = parser.parse_args()
 
+if not args.repair_interval and not args.run_interval:
+    print("Running repair once")
+else:
+    print(f"Running repair{' once every ' + args.run_interval if args.run_interval else ''}{' and waiting ' + args.repair_interval + ' between each repair' if args.repair_interval else ''}")
+
 try:
     repair_interval_seconds = parse_interval(args.repair_interval)
 except Exception as e:
@@ -41,11 +46,13 @@ except Exception as e:
     exit(1)
 
 def main():
+    print("Collecting media...")
     sonarr = Sonarr()
     radarr = Radarr()
     sonarrMedia = [(sonarr, media) for media in sonarr.getAll() if media.anyMonitoredChildren]
     radarrMedia = [(radarr, media) for media in radarr.getAll() if media.anyMonitoredChildren]
-
+    print("Finished collecting media.")
+    
     for arr, media in intersperse(sonarrMedia, radarrMedia):
         files = {}
         for file in arr.getFiles(media):
@@ -107,9 +114,7 @@ def main():
 
 if run_interval_seconds > 0:
     while True:
-        print("Running repair")
         main()
         time.sleep(run_interval_seconds)
 else:
-    print("Running repair once")
     main()
