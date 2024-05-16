@@ -10,6 +10,16 @@ x-blackhole: &blackhole
     - .env
   restart: unless-stopped
 
+x-repair: &repair
+  build: 
+    context: .
+    dockerfile: Dockerfile.scripts
+  image: ghcr.io/westsurname/scripts/scripts:latest
+  command: python repair.py --no-confirm
+  env_file:
+    - .env
+  restart: unless-stopped
+
 services:
   blackhole:
     <<: *blackhole
@@ -36,16 +46,6 @@ services:
       - ${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH} 4k:/${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}
       - ${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH} 4k:/${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}
     profiles: [blackhole_4k, blackhole_all, all]
-
-  repair:
-    build: 
-      context: .
-      dockerfile: Dockerfile.scripts
-    image: ghcr.io/westsurname/scripts/scripts:latest
-    command: python repair.py --no-confirm
-    env_file:
-      - .env
-    restart: unless-stopped
 
   repair_service:
     <<: *repair

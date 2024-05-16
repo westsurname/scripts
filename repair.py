@@ -107,7 +107,9 @@ def main():
 
 if run_interval_seconds > 0:
     while True:
+        print("Running repair")
         main()
         time.sleep(run_interval_seconds)
 else:
+    print("Running repair once")
     main()
