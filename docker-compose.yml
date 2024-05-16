@@ -51,6 +51,9 @@ services:
     <<: *repair
     container_name: repair_service
     profiles: [repair, repair_all, all]
+    volumes:
+      - ${SONARR_ROOT_FOLDER}:${SONARR_ROOT_FOLDER}
+      - ${RADARR_ROOT_FOLDER}:${RADARR_ROOT_FOLDER}
 
   repair_4k:
     <<: *repair
@@ -61,6 +64,9 @@ services:
       - RADARR_HOST=${RADARR_HOST_4K}
       - RADARR_API_KEY=${RADARR_API_KEY_4K}
     profiles: [repair_4k, repair_all, all]
+    volumes:
+      - ${SONARR_ROOT_FOLDER_4K}:${SONARR_ROOT_FOLDER}
+      - ${RADARR_ROOT_FOLDER_4K}:${RADARR_ROOT_FOLDER}
 
   watchlist:
     build: 
