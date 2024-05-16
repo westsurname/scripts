@@ -1,60 +1,56 @@
 name: Build and Push Docker images
 
 on:
+  workflow_dispatch:
   push:
     branches:
-      - main
+      - 'main'
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - 'main'
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - dockerfile: ./Dockerfile.blackhole
+            image: ghcr.io/${{ github.repository }}/blackhole
+          - dockerfile: ./Dockerfile.watchlist
+            image: ghcr.io/${{ github.repository }}/watchlist
+          - dockerfile: ./Dockerfile.plex_authentication
+            image: ghcr.io/${{ github.repository }}/plex_authentication
+          - dockerfile: ./Dockerfile.plex_request
+            image: ghcr.io/${{ github.repository }}/plex_request
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ matrix.image }}         
+            
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # - name: Load .env file
-      #   id: dotenv
-      #   uses: falti/dotenv-action@v2.0.1
-
-      - name: Build and push blackhole image
-        uses: docker/build-push-action@v2
+      - name: Build and push docker image
+        uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile.blackhole
+          file: ${{ matrix.dockerfile }}
           push: true
-          tags: ghcr.io/${{ github.repository }}/blackhole:latest
-
-      - name: Build and push watchlist image
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          file: ./Dockerfile.watchlist
-          push: true
-          tags: ghcr.io/${{ github.repository }}/watchlist:latest
-
-      - name: Build and push plex_authentication image
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          file: ./Dockerfile.plex_authentication
-          push: true
-          tags: ghcr.io/${{ github.repository }}/plex_authentication:latest
-
-      - name: Build and push plex_request image
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          file: ./Dockerfile.plex_request
-          push: true
-          tags: ghcr.io/${{ github.repository }}/plex_request:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
