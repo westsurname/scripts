@@ -31,7 +31,7 @@ args = parser.parse_args()
 if not args.repair_interval and not args.run_interval:
     print("Running repair once")
 else:
-    print(f"Running repair{' once every ' + args.run_interval if args.run_interval else ''}{' and waiting ' + args.repair_interval + ' between each repair' if args.repair_interval else ''}")
+    print(f"Running repair{' once every ' + args.run_interval if args.run_interval else ''}{', and waiting ' + args.repair_interval + ' between each repair.' if args.repair_interval else '.'}")
 
 try:
     repair_interval_seconds = parse_interval(args.repair_interval)
