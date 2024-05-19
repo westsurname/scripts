@@ -40,6 +40,7 @@ def validateRadarrApiKey():
         return False
     
     return True
+
 requiredEnvs = {
     'Sonarr host': (sonarr['host'], validateSonarrHost),
     'Sonarr API key': (sonarr['apiKey'], validateSonarrApiKey, True),
@@ -66,6 +67,10 @@ class Media(ABC):
     @property
     def title(self):
         return self.json['title']
+    
+    @property
+    def hasFile(self):
+        return self.json.get('hasFile', False)
     
     @property
     def path(self):
@@ -132,6 +137,22 @@ class Show(Media):
                 season['monitored'] = monitored
                 break
 
+class Episode(Media):
+    @property
+    def size(self):
+        return self.json['sizeOnDisk']
+
+    @property
+    def monitoredChildrenIds(self):
+        return [self.id] if self.json['monitored'] else []
+
+    @property
+    def fullyAvailableChildrenIds(self):
+        return [self.id] if self.json['hasFile'] else []
+
+    def setChildMonitored(self, childId: int, monitored: bool):
+        self.json["monitored"] = monitored
+        
 class MediaFile(ABC):
     def __init__(self, json) -> None:
         super().__init__()
@@ -169,19 +190,25 @@ class MovieFile(MediaFile):
         return self.json['movieId']
     
 class Arr(ABC):
-    def __init__(self, host: str, apiKey: str, endpoint: str, fileEndpoint: str, childIdName: str, childName: str, constructor: Type[Media], fileConstructor: Type[MediaFile]) -> None:
+    def __init__(self, host: str, apiKey: str, endpoint: str, fileEndpoint: str, childIdName: str, childName: str, grandchildEndpoint: str, constructor: Type[Media], grandchildConstructor:Type[Media], fileConstructor: Type[MediaFile]) -> None:
         self.host = host
         self.apiKey = apiKey
         self.endpoint = endpoint
         self.fileEndpoint = fileEndpoint
         self.childIdName = childIdName
         self.childName = childName
+        self.grandchildEndpoint = grandchildEndpoint
         self.constructor = constructor
+        self.grandchildConstructor = grandchildConstructor
         self.fileConstructor = fileConstructor
 
     def get(self, id: int):
         get = requests.get(f"{self.host}/api/v3/{self.endpoint}/{id}?apiKey={self.apiKey}")
         return self.constructor(get.json())
+    
+    def getGrandchild(self, id: int):
+        get = requests.get(f"{self.host}/api/v3/{self.grandchildEndpoint}/{id}?apiKey={self.apiKey}")
+        return self.grandchildConstructor(get.json())
 
     def getAll(self):
         get = requests.get(f"{self.host}/api/v3/{self.endpoint}?apiKey={self.apiKey}")
@@ -225,6 +252,7 @@ class Arr(ABC):
 
     def _automaticSearchJson(self, media: Media, childId: int):
         pass
+
 class Sonarr(Arr):
     host = sonarr['host']
     apiKey = sonarr['apiKey']
@@ -232,9 +260,10 @@ class Sonarr(Arr):
     fileEndpoint = 'episodefile'
     childIdName = 'seasonNumber'
     childName = 'Season'
+    grandchildEndpoint = 'episode'
 
     def __init__(self) -> None:
-        super().__init__(Sonarr.host, Sonarr.apiKey, Sonarr.endpoint, Sonarr.fileEndpoint, Sonarr.childIdName, Sonarr.childName, Show, EpisodeFile)
+        super().__init__(Sonarr.host, Sonarr.apiKey, Sonarr.endpoint, Sonarr.fileEndpoint, Sonarr.childIdName, Sonarr.childName, Sonarr.grandchildEndpoint, Show, Episode, EpisodeFile)
 
     def _automaticSearchJson(self, media: Media, childId: int):
         return {"name": f"{self.childName}Search", f"{self.endpoint}Id": media.id, self.childIdName: childId}
@@ -246,9 +275,11 @@ class Radarr(Arr):
     fileEndpoint = 'moviefile'
     childIdName = None
     childName = 'Movies'
+    grandchildEndpoint = endpoint
 
     def __init__(self) -> None:
-        super().__init__(Radarr.host, Radarr.apiKey, Radarr.endpoint, Radarr.fileEndpoint, None, Radarr.childName, Movie, MovieFile)
+        super().__init__(Radarr.host, Radarr.apiKey, Radarr.endpoint, Radarr.fileEndpoint, Radarr.childIdName, Radarr.childName, Radarr.grandchildEndpoint, Movie, Movie, MovieFile)
 
     def _automaticSearchJson(self, media: Media, childId: int):
         return {"name": f"{self.childName}Search", f"{self.endpoint}Ids": [media.id]}
+

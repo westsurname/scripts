@@ -80,13 +80,13 @@ class TorrentFileInfo():
             self.isTorrentOrMagnet = isTorrentOrMagnet
             self.isDotTorrentFile = isDotTorrentFile
 
-    def __init__(self, filename, isRadarr) -> None:
+    def __init__(self, filename, isRadarr, filePath=None) -> None:
         print('filename:', filename)
         baseBath = getPath(isRadarr)
         isDotTorrentFile = filename.casefold().endswith('.torrent')
         isTorrentOrMagnet = isDotTorrentFile or filename.casefold().endswith('.magnet')
         filenameWithoutExt, _ = os.path.splitext(filename)
-        filePath = os.path.join(baseBath, filename)
+        filePath = filePath or os.path.join(baseBath, filename)
         filePathProcessing = os.path.join(baseBath, 'processing', filename)
         folderPathCompleted = os.path.join(baseBath, 'completed', filenameWithoutExt)
         folderPathMountTorrent = os.path.join(blackhole['rdMountTorrentsPath'], filenameWithoutExt)
@@ -96,11 +96,10 @@ class TorrentFileInfo():
         
 
 class TorrentBase(ABC):
-    def __init__(self, f, file, fail, failIfNotCached, onlyLargestFile) -> None:
+    def __init__(self, f, file, failIfNotCached, onlyLargestFile) -> None:
         super().__init__()
         self.f = f
         self.file = file
-        self.fail = fail
         self.failIfNotCached = failIfNotCached
         self.onlyLargestFile = onlyLargestFile
         self.id = None
@@ -125,7 +124,6 @@ class TorrentBase(ABC):
             instantAvailability = self.getInstantAvailability()
             self.print('instantAvailability:', not not instantAvailability)
             if not instantAvailability:
-                self.fail(self)
                 return False
 
         availableHost = self.getAvailableHost()
@@ -261,7 +259,7 @@ def getPath(isRadarr, create=False):
     finalPath = os.path.join(absoluteBaseWatchPath, blackhole['radarrPath'] if isRadarr else blackhole['sonarrPath'])
 
     if create:
-        for sub_path in ['', 'processing', 'completed']:
+        for sub_path in ['', 'processing', 'completed', 'uncached']:
             path_to_check = os.path.join(finalPath, sub_path)
             if not os.path.exists(path_to_check):
                 os.makedirs(path_to_check)
@@ -319,7 +317,7 @@ def copyFiles(file: TorrentFileInfo, folderPathMountTorrent, arr: Arr):
 
 import signal
 
-async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
+async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached=None):
     try:
         _print = globals()['print']
 
@@ -346,7 +344,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                     executor.shutdown(wait=False)
 
         with open(file.fileInfo.filePathProcessing, 'rb' if file.torrentInfo.isDotTorrentFile else 'r') as f:
-            def fail(torrent: TorrentBase, arr: Arr=arr):
+            def fail(torrent: TorrentBase, arr: Arr=arr, uncached=False):
                 print(f"Failing")
 
                 history = arr.getHistory(blackhole['historyPageSize'])['records']
@@ -358,15 +356,25 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                 for item in items:
                     # TODO: See if we can fail without blacklisting as cached items constantly changes
                     arr.failHistoryItem(item['id'])
-                print(f"Failed")
 
+                if uncached and items:
+                    ids = '-'.join(str(item.get('episodeId', item['movieId'])) for item in items)
+                    path = os.path.join(getPath(isRadarr), 'uncached', ids)
+                    os.renames(torrent.file.fileInfo.filePathProcessing, path)
+
+                print(f"Failed")
+                            
+
+            failIfNotCached = blackhole['failIfNotCached'] if failIfNotCached is None else failIfNotCached;
             onlyLargestFile = isRadarr or bool(re.search(r'S[\d]{2}E[\d]{2}', file.fileInfo.filename))
             if file.torrentInfo.isDotTorrentFile:
-                torrent = Torrent(f, file, fail, blackhole['failIfNotCached'], onlyLargestFile)
+                torrent = Torrent(f, file, failIfNotCached, onlyLargestFile)
             else:
-                torrent = Magnet(f, file, fail, blackhole['failIfNotCached'], onlyLargestFile)
+                torrent = Magnet(f, file, failIfNotCached, onlyLargestFile)
             
-            if torrent.submitTorrent():
+            if not torrent.submitTorrent():
+                historyItems = fail(torrent, uncached=True)
+            else:
                 count = 0
                 while True:
                     count += 1
@@ -387,7 +395,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                         if torrent.incompatibleHashSize and torrent.failIfNotCached:
                             print("Non-cached incompatible hash sized torrent")
                             torrent.delete()
-                            fail(torrent)
+                            fail(torrent, uncached=True)
                             break
                         await asyncio.sleep(1)
                     elif status == 'magnet_error' or status == 'error' or status == 'dead' or status == 'virus':
@@ -500,7 +508,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
 
 def getFiles(isRadarr):
     print('getFiles')
-    files = (TorrentFileInfo(filename, isRadarr) for filename in os.listdir(getPath(isRadarr)) if filename not in ['processing', 'completed'])
+    files = (TorrentFileInfo(filename, isRadarr) for filename in os.listdir(getPath(isRadarr)) if filename not in ['processing', 'completed', 'uncached'])
     return [file for file in files if file.torrentInfo.isTorrentOrMagnet]
 
 async def on_created(isRadarr):
@@ -540,6 +548,67 @@ async def on_created(isRadarr):
 
 def start(isRadarr):
     asyncio.run(on_created(isRadarr))
+
+def removeDir(dirPath):
+    files = os.listdir(dirPath)
+    for file in files:
+        os.remove(os.path.join(dirPath, file))
+    os.rmdir(dirPath)
+
+async def processUncachedDir(root, dir, arr, isRadarr):
+    try:
+        dirPath = os.path.join(root, dir)
+        files = os.listdir(dirPath)
+        if not files:
+            os.rmdir(dirPath)
+            return
+
+        ids = dir.split('-')
+        if all(arr.getGrandchild(id).hasFile for id in ids):
+            removeDir(dirPath)
+            return
+
+        files = sorted((os.path.join(dirPath, file) for file in files), key=os.path.getctime)
+
+        newestFileTime = os.path.getctime(files[-1])
+        if (time.time() - newestFileTime) <= 900:  # 15 minutes
+            return
+        
+        oldestFile = files[0]
+        await processFile(TorrentFileInfo(os.path.basename(oldestFile), isRadarr, oldestFile), arr, isRadarr, failIfNotCached=False)
+        removeDir(dirPath)
+    except:
+        e = traceback.format_exc()
+
+        print(f"Error processing uncached directory: {dirPath}")
+        print(e)
+        
+        discordError(f"Error processing uncached directory: {dirPath}", e)
+
+async def processUncached():
+    print('Processing uncached')
+    try:
+        radarr = Radarr()
+        sonarr = Sonarr()
+
+        paths = [(os.path.join(getPath(isRadarr=True), 'uncached'), radarr, True), (os.path.join(getPath(isRadarr=False), 'uncached'), sonarr, False)]
+
+        futures: list[asyncio.Future] = []
+
+        for path, arr, isRadarr in paths:
+            for root, dirs, _ in os.walk(path):
+                futures.append(asyncio.gather(*(processUncachedDir(root, dir, arr, isRadarr) for dir in dirs)))
+
+        await asyncio.gather(*futures)
+    except:
+        e = traceback.format_exc()
+
+        print(f"Error processing uncached")
+        print(e)
+
+        discordError(f"Error processing uncached", e)
+    print("Finished processing uncached")
+    
 
 if __name__ == "__main__":
     start(isRadarr=sys.argv[1] == 'radarr')
