@@ -179,7 +179,7 @@ class TorrentBase(ABC):
 
         info = self.getInfo()
         self.print('files:', info['files'])
-        mediaFiles = [file for file in info['files'] if os.path.splitext(file['path'])[1] in mediaExtensions]
+        mediaFiles = [file for file in info['files'] if os.path.splitext(file['path'])[1].lower() in mediaExtensions]
         
         if not mediaFiles:
             self.print('no media files found')
