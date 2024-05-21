@@ -9,6 +9,8 @@ x-blackhole: &blackhole
   env_file:
     - .env
   restart: unless-stopped
+  networks:
+    - ${DOCKER_NETWORK:-docker_network_default}
 
 x-repair: &repair
   build: 
@@ -19,6 +21,8 @@ x-repair: &repair
   env_file:
     - .env
   restart: unless-stopped
+  networks:
+    - ${DOCKER_NETWORK:-docker_network_default}
 
 services:
   blackhole:
@@ -50,10 +54,10 @@ services:
   repair_service:
     <<: *repair
     container_name: repair_service
-    profiles: [repair, repair_all, all]
     volumes:
       - ${SONARR_ROOT_FOLDER}:${SONARR_ROOT_FOLDER}
       - ${RADARR_ROOT_FOLDER}:${RADARR_ROOT_FOLDER}
+    profiles: [repair, repair_all, all]
 
   repair_4k:
     <<: *repair
@@ -63,10 +67,10 @@ services:
       - SONARR_API_KEY=${SONARR_API_KEY_4K}
       - RADARR_HOST=${RADARR_HOST_4K}
       - RADARR_API_KEY=${RADARR_API_KEY_4K}
-    profiles: [repair_4k, repair_all, all]
     volumes:
       - ${SONARR_ROOT_FOLDER_4K}:${SONARR_ROOT_FOLDER}
       - ${RADARR_ROOT_FOLDER_4K}:${RADARR_ROOT_FOLDER}
+    profiles: [repair_4k, repair_all, all]
 
   watchlist:
     build: 
@@ -113,3 +117,6 @@ services:
     restart: unless-stopped
     profiles: [plex_request, all]
 
+networks:
+  ${DOCKER_NETWORK:-docker_network_default}:
+    external: true
