@@ -93,6 +93,7 @@
     - `PGID`: Set this to the group ID that the service should run as.
     - `UMASK`: Set this to control the default file creation permissions.
     - `DOCKER_NETWORK`: Set this to the name of the Docker network to be used by the services.
+    - `DOCKER_NETWORK_EXTERNAL`: Set this to `true` if specifying an external Docker network above, otherwise set to `false`.
     
 ## Blackhole
 
