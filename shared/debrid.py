@@ -341,10 +341,10 @@ class Torbox(TorrentBase):
     def _addTorrentFile(self):
         nametorrent = self.f.name.split('/')[-1]
         files = {'file': (nametorrent, self.f, 'application/x-bittorrent')}
-        return self._addFile("/torrents/createtorrent", files=files)
+        return self._addFile("torrents/createtorrent", files=files)
 
     def _addMagnetFile(self):
-        return self._addFile("/torrents/createtorrent", data={'magnet': self.fileData})
+        return self._addFile("torrents/createtorrent", data={'magnet': self.fileData})
 
     def _normalize_status(self, status, download_finished):
         if download_finished:
