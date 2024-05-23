@@ -1,9 +1,9 @@
 import os
 import re
 import argparse
-from shared.shared import blackhole
+from shared.shared import blackhole, realdebrid
 
-parentDirectory = blackhole['rdMountTorrentsPath']
+parentDirectory = realdebrid['mountTorrentsPath']
 
 def get_completed_parent_directory(args):
     if args.symlink_directory:

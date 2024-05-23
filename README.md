@@ -56,9 +56,17 @@
      - `TAUTULLI_HOST`: The host address of your Tautulli instance.
      - `TAUTULLI_API_KEY`: The API key for accessing Tautulli.
 
-   - **RealDebrid** - Blackhole:
+   - **RealDebrid** - Blackhole, Repair:
+     - `REALDEBRID_ENABLED`: Set to `true` to enable RealDebrid services.
      - `REALDEBRID_HOST`: The host address for the RealDebrid API.
      - `REALDEBRID_API_KEY`: The API key for accessing RealDebrid services.
+     - `REALDEBRID_MOUNT_TORRENTS_PATH`: The path to the RealDebrid mount torrents folder.
+
+   - **TorBox** - Blackhole, Repair:
+     - `TORBOX_ENABLED`: Set to `true` to enable TorBox services.
+     - `TORBOX_HOST`: The host address for the TorBox API.
+     - `TORBOX_API_KEY`: The API key for accessing TorBox services.
+     - `TORBOX_MOUNT_TORRENTS_PATH`: The path to the TorBox mount torrents folder.
 
    - **Trakt** - Reclaim Space:
      - `TRAKT_API_KEY`: The API key for integrating with Trakt.
@@ -69,7 +77,6 @@
      - `WATCHLIST_PLEX_CLIENT_IDENTIFIER`: A unique identifier for the Plex client.
 
    - **Blackhole** - Blackhole:
-     - `BLACKHOLE_RD_MOUNT_TORRENTS_PATH`: The path to the RealDebrid mounted torrents.
      - `BLACKHOLE_BASE_WATCH_PATH`: The base path for watched folders by the blackhole mechanism. Can be relative or absolute.
      - `BLACKHOLE_RADARR_PATH`: The path where torrent files will be dropped into by Radarr, relative to the base path.
      - `BLACKHOLE_SONARR_PATH`: The path where torrent files will be dropped into by Sonarr, relative to the base path.

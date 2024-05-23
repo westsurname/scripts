@@ -3,7 +3,7 @@ import argparse
 import time
 from shared.arr import Sonarr, Radarr
 from shared.discord import discordUpdate
-from shared.shared import repair, blackhole, intersperse
+from shared.shared import repair, realdebrid, torbox, intersperse
 
 def parse_interval(interval_str):
     """Parse a smart interval string (e.g., '1w2d3h4m5s') into seconds."""
@@ -68,11 +68,14 @@ def main():
             for childFile in childFiles:
 
                 fullPath = childFile.path
+                destinationPath = os.readlink(fullPath)
                 realPath = os.path.realpath(fullPath)
                 realPaths.append(realPath)
                 
-                if os.path.islink(fullPath) and realPath.startswith(blackhole['rdMountTorrentsPath']) and not os.path.exists(realPath):
-                    brokenSymlinks.append(realPath)
+                if os.path.islink(fullPath):
+                    if ((realdebrid['enabled'] and destinationPath.startswith(realdebrid['mountTorrentsPath']) and not os.path.destinationPath(realPath)) or 
+                       (torbox['enabled'] and destinationPath.startswith(torbox['mountTorrentsPath']) and not os.path.destinationPath(realPath))):
+                        brokenSymlinks.append(realPath)
             
             # If not full season just repair individual episodes?
             if brokenSymlinks:
