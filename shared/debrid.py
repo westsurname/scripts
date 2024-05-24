@@ -353,7 +353,7 @@ class Torbox(TorrentBase):
                     requests.get(inactiveCheckUrl)
                     self.lastInactiveCheck = currentTime
             
-            for _ in range(10):
+            for _ in range(20):
                 infoRequest = requests.get(urljoin(torbox['host'], "torrents/mylist"), headers=self.headers)
                 torrents = infoRequest.json()['data']
                 
