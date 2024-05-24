@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 import hashlib
@@ -135,7 +136,7 @@ class TorrentBase(ABC):
         pass
     
     @abstractmethod
-    def getInfo(self, refresh=False):
+    async def getInfo(self, refresh=False):
         pass
 
     @abstractmethod
@@ -196,7 +197,7 @@ class RealDebrid(TorrentBase):
         availableHosts = availableHostsRequest.json()
         return availableHosts[0]['host']
     
-    def getInfo(self, refresh=False):
+    async def getInfo(self, refresh=False):
         self._enforceId()
 
         if refresh or not self._info:
@@ -282,6 +283,10 @@ class Torbox(TorrentBase):
         self.headers = {'Authorization': f'Bearer {torbox["apiKey"]}'}
         self.mountTorrentsPath = torbox["mountTorrentsPath"]
 
+        userInfoRequest = requests.get(urljoin(torbox['host'], "user/me"), headers=self.headers)
+        userInfo = userInfoRequest.json()
+        self.authId = userInfo['data']['auth_id']
+
     def submitTorrent(self):
         if self.failIfNotCached:
             instantAvailability = self._getInstantAvailability()
@@ -290,6 +295,7 @@ class Torbox(TorrentBase):
                 return False
 
         self.addTorrent()
+        self.submittedTime = datetime
         return True
 
     def _getInstantAvailability(self, refresh=False):
@@ -308,18 +314,25 @@ class Torbox(TorrentBase):
         
         return self._instantAvailability
 
-    def getInfo(self, refresh=False):
+    async def getInfo(self, refresh=False):
         self._enforceId()
 
         if refresh or not self._info:
-            infoRequest = requests.get(urljoin(torbox['host'], "torrents/mylist"), headers=self.headers)
-            torrents = infoRequest.json()['data']
-            for torrent in torrents:
-                if torrent['id'] == self.id:
-                    torrent['status'] = self._normalize_status(torrent['download_state'], torrent['download_finished'])
-                    self._info = torrent
-                    break
-
+            if (datetime.now() - self.submittedTime).total_seconds() < 300:
+                inactiveCheckUrl = f"https://relay.torbox.app/v1/inactivecheck/torrent/{self.authId}/{self.id}"
+                requests.get(inactiveCheckUrl)
+            
+            for _ in range(10):
+                infoRequest = requests.get(urljoin(torbox['host'], "torrents/mylist"), headers=self.headers)
+                torrents = infoRequest.json()['data']
+                
+                for torrent in torrents:
+                    if torrent['id'] == self.id:
+                        torrent['status'] = self._normalize_status(torrent['download_state'], torrent['download_finished'])
+                        self._info = torrent
+                        return self._info
+                
+                await asyncio.sleep(1)
         return self._info
 
     def selectFiles(self):
