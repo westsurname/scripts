@@ -297,7 +297,7 @@ class Torbox(TorrentBase):
                 return False
 
         self.addTorrent()
-        self.submittedTime = datetime
+        self.submittedTime = datetime.now()
         return True
 
     def _getInstantAvailability(self, refresh=False):
