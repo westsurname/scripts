@@ -95,7 +95,7 @@ async def refreshArr(arr: Arr, count=60):
         print("Refresh already in progress, restarting...")
         refreshingTask.cancel()
 
-    refreshingTask = asyncio.createTask(refresh())
+    refreshingTask = asyncio.create_task(refresh())
     try:
         await refreshingTask
     except asyncio.CancelledError:
@@ -280,7 +280,12 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
 
             onlyLargestFile = isRadarr or bool(re.search(r'S[\d]{2}E[\d]{2}', file.fileInfo.filename))
             if not blackhole['failIfNotCached']:
-                await asyncio.gather(*(processTorrent(constructor(f, file, blackhole['failIfNotCached'], onlyLargestFile), file, arr) for constructor in torrentConstructors))
+                torrents = [constructor(f, file, blackhole['failIfNotCached'], onlyLargestFile) for constructor in torrentConstructors]
+                results = await asyncio.gather(*(processTorrent(torrent, file, arr) for torrent in torrents))
+                
+                if not any(results):
+                    for torrent in torrents:
+                        fail(torrent, arr)
             else:
                 for i, constructor in enumerate(torrentConstructors):
                     isLast = (i == len(torrentConstructors) - 1)
