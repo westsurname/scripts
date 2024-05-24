@@ -349,9 +349,14 @@ class Torbox(TorrentBase):
     def _normalize_status(self, status, download_finished):
         if download_finished:
             return self.STATUS_COMPLETED
-        elif status in ['paused', 'downloading', 'uploading', 'checkingResumeData']:
+        elif status in [
+            'paused', 'downloading', 'uploading', 'checkingResumeData', 'metaDL',
+            'pausedUP', 'queuedUP',  'checkingUP', 'forcedUP',
+            'allocating', 'downloading', 'metaDL', 'pausedDL', 'queuedDL',
+            'checkingDL', 'forcedDL', 'checkingResumeData', 'moving'
+        ]:
             return self.STATUS_DOWNLOADING
-        elif status in ['error', 'stalled (no seeds)']:
+        elif status in ['error', 'stalledUP', 'stalledDL', 'stalled (no seeds)', 'missingFiles']:
             return self.STATUS_ERROR
         return status
 
