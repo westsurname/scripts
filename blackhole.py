@@ -148,7 +148,7 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) 
         print('status:', status)
 
         if status == torrent.STATUS_WAITING_FILES_SELECTION:
-            if not torrent.selectFiles():
+            if not await torrent.selectFiles():
                 torrent.delete()
                 return False
         elif status == torrent.STATUS_DOWNLOADING:

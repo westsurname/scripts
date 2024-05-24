@@ -140,7 +140,7 @@ class TorrentBase(ABC):
         pass
 
     @abstractmethod
-    def selectFiles(self):
+    async def selectFiles(self):
         pass
 
     @abstractmethod
@@ -208,10 +208,10 @@ class RealDebrid(TorrentBase):
 
         return self._info
 
-    def selectFiles(self):
+    async def selectFiles(self):
         self._enforceId()
 
-        info = self.getInfo()
+        info = await self.getInfo()
         self.print('files:', info['files'])
         mediaFiles = [file for file in info['files'] if os.path.splitext(file['path'])[1].lower() in mediaExtensions]
         
@@ -282,6 +282,8 @@ class Torbox(TorrentBase):
         super().__init__(f, file, failIfNotCached, onlyLargestFile)
         self.headers = {'Authorization': f'Bearer {torbox["apiKey"]}'}
         self.mountTorrentsPath = torbox["mountTorrentsPath"]
+        self.submittedTime = None
+        self.lastInactiveCheck = None
 
         userInfoRequest = requests.get(urljoin(torbox['host'], "user/me"), headers=self.headers)
         userInfo = userInfoRequest.json()
@@ -318,9 +320,12 @@ class Torbox(TorrentBase):
         self._enforceId()
 
         if refresh or not self._info:
-            if (datetime.now() - self.submittedTime).total_seconds() < 300:
-                inactiveCheckUrl = f"https://relay.torbox.app/v1/inactivecheck/torrent/{self.authId}/{self.id}"
-                requests.get(inactiveCheckUrl)
+            currentTime = datetime.now()
+            if (currentTime - self.submittedTime).total_seconds() < 300:
+                if not self.lastInactiveCheck or (currentTime - self.lastInactiveCheck).total_seconds() > 5:
+                    inactiveCheckUrl = f"https://relay.torbox.app/v1/inactivecheck/torrent/{self.authId}/{self.id}"
+                    requests.get(inactiveCheckUrl)
+                    self.lastInactiveCheck = currentTime
             
             for _ in range(10):
                 infoRequest = requests.get(urljoin(torbox['host'], "torrents/mylist"), headers=self.headers)
@@ -335,7 +340,7 @@ class Torbox(TorrentBase):
                 await asyncio.sleep(1)
         return self._info
 
-    def selectFiles(self):
+    async def selectFiles(self):
         pass
 
     def delete(self):
