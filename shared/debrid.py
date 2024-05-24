@@ -102,9 +102,10 @@ class TorrentBase(ABC):
     STATUS_COMPLETED = 'completed'
     STATUS_ERROR = 'error'
 
-    def __init__(self, f, file, failIfNotCached, onlyLargestFile) -> None:
+    def __init__(self, f, fileData, file, failIfNotCached, onlyLargestFile) -> None:
         super().__init__()
         self.f = f
+        self.fileData = fileData
         self.file = file
         self.failIfNotCached = failIfNotCached
         self.onlyLargestFile = onlyLargestFile
@@ -116,12 +117,6 @@ class TorrentBase(ABC):
     
     def print(self, *values: object):
         print(f"[{datetime.now()}] [{self.__class__.__name__}] [{self.file.fileInfo.filenameWithoutExt}]", *values)
-
-    @cached_property
-    def fileData(self):
-        fileData = self.f.read()
-        self.f.seek(0)
-        return fileData
 
     @abstractmethod
     def submitTorrent(self):
@@ -164,8 +159,8 @@ class TorrentBase(ABC):
             raise Exception("Id is required. Must be acquired via successfully running submitTorrent() first.")
 
 class RealDebrid(TorrentBase):
-    def __init__(self, f, file, failIfNotCached, onlyLargestFile) -> None:
-        super().__init__(f, file, failIfNotCached, onlyLargestFile)
+    def __init__(self, f, fileData, file, failIfNotCached, onlyLargestFile) -> None:
+        super().__init__(f, fileData, file, failIfNotCached, onlyLargestFile)
         self.headers = {'Authorization': f'Bearer {realdebrid["apiKey"]}'}
         self.mountTorrentsPath = realdebrid["mountTorrentsPath"]
 
@@ -304,8 +299,8 @@ class RealDebrid(TorrentBase):
         return status
 
 class Torbox(TorrentBase):
-    def __init__(self, f, file, failIfNotCached, onlyLargestFile) -> None:
-        super().__init__(f, file, failIfNotCached, onlyLargestFile)
+    def __init__(self, f, fileData, file, failIfNotCached, onlyLargestFile) -> None:
+        super().__init__(f, fileData, file, failIfNotCached, onlyLargestFile)
         self.headers = {'Authorization': f'Bearer {torbox["apiKey"]}'}
         self.mountTorrentsPath = torbox["mountTorrentsPath"]
         self.submittedTime = None

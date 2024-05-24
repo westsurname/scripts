@@ -272,6 +272,9 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                     executor.shutdown(wait=False)
 
         with open(file.fileInfo.filePathProcessing, 'rb' if file.torrentInfo.isDotTorrentFile else 'r') as f:
+            fileData = f.read()
+            f.seek(0)
+            
             torrentConstructors = []
             if realdebrid['enabled']:
                 torrentConstructors.append(RealDebridTorrent if file.torrentInfo.isDotTorrentFile else RealDebridMagnet)
@@ -280,7 +283,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
 
             onlyLargestFile = isRadarr or bool(re.search(r'S[\d]{2}E[\d]{2}', file.fileInfo.filename))
             if not blackhole['failIfNotCached']:
-                torrents = [constructor(f, file, blackhole['failIfNotCached'], onlyLargestFile) for constructor in torrentConstructors]
+                torrents = [constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile) for constructor in torrentConstructors]
                 results = await asyncio.gather(*(processTorrent(torrent, file, arr) for torrent in torrents))
                 
                 if not any(results):
@@ -289,7 +292,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
             else:
                 for i, constructor in enumerate(torrentConstructors):
                     isLast = (i == len(torrentConstructors) - 1)
-                    torrent = constructor(f, file, blackhole['failIfNotCached'], onlyLargestFile)
+                    torrent = constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile)
 
                     if await processTorrent(torrent, file, arr):
                         break
@@ -310,7 +313,6 @@ def fail(torrent: TorrentBase, arr: Arr):
 
     def print(*values: object):
         _print(f"[{torrent.__class__.__name__}] [{torrent.file.fileInfo.filenameWithoutExt}]", *values)
-
 
     print(f"Failing")
 
