@@ -256,8 +256,8 @@ class RealDebrid(TorrentBase):
         deleteRequest = requests.delete(urljoin(realdebrid['host'], f"torrents/delete/{self.id}"), headers=self.headers)
 
     async def getTorrentPath(self):
-        filename = await self.getInfo()['filename']
-        originalFilename = await self.getInfo()['original_filename']
+        filename = (await self.getInfo())['filename']
+        originalFilename = (await self.getInfo())['original_filename']
 
         folderPathMountFilenameTorrent = os.path.join(self.mountTorrentsPath, filename)
         folderPathMountOriginalFilenameTorrent = os.path.join(self.mountTorrentsPath, originalFilename)
@@ -375,7 +375,7 @@ class Torbox(TorrentBase):
         deleteRequest = requests.delete(urljoin(torbox['host'], "torrents/controltorrent"), headers=self.headers, data={'torrent_id': self.id, 'operation': "Delete"})
 
     async def getTorrentPath(self):
-        filename = await self.getInfo()['name']
+        filename = (await self.getInfo())['name']
 
         folderPathMountFilenameTorrent = os.path.join(self.mountTorrentsPath, filename)
        
