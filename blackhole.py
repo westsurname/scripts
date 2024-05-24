@@ -104,7 +104,7 @@ async def refreshArr(arr: Arr, count=60):
 def copyFiles(file: TorrentFileInfo, folderPathMountTorrent, arr: Arr):
     # Consider removing this and always streaming
     try:
-        _print = globals()['print']
+        _print = print
 
         def print(*values: object):
             _print(f"[{file.fileInfo.filenameWithoutExt}]", *values)
@@ -136,6 +136,11 @@ def copyFiles(file: TorrentFileInfo, folderPathMountTorrent, arr: Arr):
 import signal
 
 async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) -> bool:
+    _print = print
+
+    def print(*values: object):
+        _print(f"[{torrent.__class__.__name__}] [{file.fileInfo.filenameWithoutExt}]", *values)
+        
     if not torrent.submitTorrent():
         return False
 
@@ -258,7 +263,7 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) 
 
 async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
     try:
-        _print = globals()['print']
+        _print = print
 
         def print(*values: object):
             _print(f"[{file.fileInfo.filenameWithoutExt}]", *values)
@@ -312,6 +317,12 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
         discordError(f"Error processing {file.fileInfo.filenameWithoutExt}", e)
 
 def fail(torrent: TorrentBase, arr: Arr):
+    _print = print
+
+    def print(*values: object):
+        _print(f"[{torrent.__class__.__name__}] [{torrent.file.fileInfo.filenameWithoutExt}]", *values)
+
+
     print(f"Failing")
 
     history = arr.getHistory(blackhole['historyPageSize'])['records']
