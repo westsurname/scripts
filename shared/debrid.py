@@ -115,7 +115,7 @@ class TorrentBase(ABC):
         self._instantAvailability = None
     
     def print(self, *values: object):
-        print(f"[{datetime.now()}][{self.__class__.__name__}][{self.file.fileInfo.filenameWithoutExt}]", *values)
+        print(f"[{datetime.now()}] [{self.__class__.__name__}] [{self.file.fileInfo.filenameWithoutExt}]", *values)
 
     @cached_property
     def fileData(self):

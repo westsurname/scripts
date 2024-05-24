@@ -154,7 +154,7 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) 
         elif status == torrent.STATUS_DOWNLOADING:
             # Send progress to arr
             progress = info['progress']
-            print(progress)
+            print(f"Progress: {progress:.2f}%")
             if torrent.incompatibleHashSize and torrent.failIfNotCached:
                 print("Non-cached incompatible hash sized torrent")
                 torrent.delete()
