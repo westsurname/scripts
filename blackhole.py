@@ -171,26 +171,10 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) 
             existsCount = 0
             print('Waiting for folders to refresh...')
 
-            filename = info.get('filename')
-            originalFilename = info.get('original_filename')
-
-            folderPathMountFilenameTorrent = os.path.join(torrent.mountTorrentsPath, filename)
-            folderPathMountOriginalFilenameTorrent = os.path.join(torrent.mountTorrentsPath, originalFilename)
-            folderPathMountOriginalFilenameWithoutExtTorrent = os.path.join(torrent.mountTorrentsPath, os.path.splitext(originalFilename)[0])
-
             while True:
                 existsCount += 1
-               
-                if os.path.exists(folderPathMountFilenameTorrent) and os.listdir(folderPathMountFilenameTorrent):
-                    folderPathMountTorrent = folderPathMountFilenameTorrent
-                elif os.path.exists(folderPathMountOriginalFilenameTorrent) and os.listdir(folderPathMountOriginalFilenameTorrent):
-                    folderPathMountTorrent = folderPathMountOriginalFilenameTorrent
-                elif (originalFilename.endswith(('.mkv', '.mp4')) and
-                      os.path.exists(folderPathMountOriginalFilenameWithoutExtTorrent) and os.listdir(folderPathMountOriginalFilenameWithoutExtTorrent)):
-                    folderPathMountTorrent = folderPathMountOriginalFilenameWithoutExtTorrent
-                else:
-                    folderPathMountTorrent = None
-
+                
+                folderPathMountTorrent = await torrent.getTorrentPath()
                 if folderPathMountTorrent:
                     multiSeasonRegex1 = r'(?<=[\W_][Ss]eason[\W_])[\d][\W_][\d]{1,2}(?=[\W_])'
                     multiSeasonRegex2 = r'(?<=[\W_][Ss])[\d]{2}[\W_][Ss]?[\d]{2}(?=[\W_])'

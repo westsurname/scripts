@@ -147,9 +147,15 @@ class TorrentBase(ABC):
     def delete(self):
         pass
 
+    @abstractmethod
+    async def getTorrentPath(self):
+        pass
+
+    @abstractmethod
     def _addTorrentFile(self):
         pass
 
+    @abstractmethod
     def _addMagnetFile(self):
         pass
 
@@ -249,6 +255,26 @@ class RealDebrid(TorrentBase):
 
         deleteRequest = requests.delete(urljoin(realdebrid['host'], f"torrents/delete/{self.id}"), headers=self.headers)
 
+    async def getTorrentPath(self):
+        filename = await self.getInfo()['filename']
+        originalFilename = await self.getInfo()['original_filename']
+
+        folderPathMountFilenameTorrent = os.path.join(self.mountTorrentsPath, filename)
+        folderPathMountOriginalFilenameTorrent = os.path.join(self.mountTorrentsPath, originalFilename)
+        folderPathMountOriginalFilenameWithoutExtTorrent = os.path.join(self.mountTorrentsPath, os.path.splitext(originalFilename)[0])
+
+        if os.path.exists(folderPathMountFilenameTorrent) and os.listdir(folderPathMountFilenameTorrent):
+            folderPathMountTorrent = folderPathMountFilenameTorrent
+        elif os.path.exists(folderPathMountOriginalFilenameTorrent) and os.listdir(folderPathMountOriginalFilenameTorrent):
+            folderPathMountTorrent = folderPathMountOriginalFilenameTorrent
+        elif (originalFilename.endswith(('.mkv', '.mp4')) and
+                os.path.exists(folderPathMountOriginalFilenameWithoutExtTorrent) and os.listdir(folderPathMountOriginalFilenameWithoutExtTorrent)):
+            folderPathMountTorrent = folderPathMountOriginalFilenameWithoutExtTorrent
+        else:
+            folderPathMountTorrent = None
+
+        return folderPathMountTorrent
+
     def _addFile(self, endpoint, data):
         host = self._getAvailableHost()
 
@@ -347,6 +373,18 @@ class Torbox(TorrentBase):
         self._enforceId()
 
         deleteRequest = requests.delete(urljoin(torbox['host'], "torrents/controltorrent"), headers=self.headers, data={'torrent_id': self.id, 'operation': "Delete"})
+
+    async def getTorrentPath(self):
+        filename = await self.getInfo()['name']
+
+        folderPathMountFilenameTorrent = os.path.join(self.mountTorrentsPath, filename)
+       
+        if os.path.exists(folderPathMountFilenameTorrent) and os.listdir(folderPathMountFilenameTorrent):
+            folderPathMountTorrent = folderPathMountFilenameTorrent
+        else:
+            folderPathMountTorrent = None
+
+        return folderPathMountTorrent
 
     def _addFile(self, endpoint, data=None, files=None):
         request = requests.post(urljoin(torbox['host'], endpoint), headers=self.headers, data=data, files=files)
