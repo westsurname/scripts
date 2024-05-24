@@ -5,6 +5,7 @@ import bencode3
 import requests
 from abc import ABC, abstractmethod
 from urllib.parse import urljoin
+from datetime import datetime
 from shared.discord import discordUpdate
 from shared.shared import realdebrid, torbox, mediaExtensions, checkRequiredEnvs
 from werkzeug.utils import cached_property
@@ -113,7 +114,7 @@ class TorrentBase(ABC):
         self._instantAvailability = None
     
     def print(self, *values: object):
-        print(f"[{self.__class__.__name__} - {self.file.fileInfo.filenameWithoutExt}]", *values)
+        print(f"[{datetime.now()}][{self.__class__.__name__}][{self.file.fileInfo.filenameWithoutExt}]", *values)
 
     @cached_property
     def fileData(self):
