@@ -1,6 +1,7 @@
 import os
 import argparse
 import time
+import shared.debrid # Run validation
 from shared.arr import Sonarr, Radarr
 from shared.discord import discordUpdate
 from shared.shared import repair, realdebrid, torbox, intersperse
@@ -73,8 +74,8 @@ def main():
                 realPaths.append(realPath)
                 
                 if os.path.islink(fullPath):
-                    if ((realdebrid['enabled'] and destinationPath.startswith(realdebrid['mountTorrentsPath']) and not os.path.destinationPath(realPath)) or 
-                       (torbox['enabled'] and destinationPath.startswith(torbox['mountTorrentsPath']) and not os.path.destinationPath(realPath))):
+                    if ((realdebrid['enabled'] and destinationPath.startswith(realdebrid['mountTorrentsPath']) and not os.path.exists(destinationPath)) or 
+                       (torbox['enabled'] and destinationPath.startswith(torbox['mountTorrentsPath']) and not os.path.exists(realPath))):
                         brokenSymlinks.append(realPath)
             
             # If not full season just repair individual episodes?

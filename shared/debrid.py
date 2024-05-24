@@ -351,10 +351,10 @@ class Torbox(TorrentBase):
         if download_finished:
             return self.STATUS_COMPLETED
         elif status in [
-            'paused', 'downloading', 'uploading', 'checkingResumeData', 'metaDL',
-            'pausedUP', 'queuedUP',  'checkingUP', 'forcedUP',
-            'allocating', 'downloading', 'metaDL', 'pausedDL', 'queuedDL',
-            'checkingDL', 'forcedDL', 'checkingResumeData', 'moving'
+            'completed', 'cached', 'paused', 'downloading', 'uploading',
+            'checkingResumeData', 'metaDL', 'pausedUP', 'queuedUP', 'checkingUP',
+            'forcedUP', 'allocating', 'downloading', 'metaDL', 'pausedDL',
+            'queuedDL', 'checkingDL', 'forcedDL', 'checkingResumeData', 'moving'
         ]:
             return self.STATUS_DOWNLOADING
         elif status in ['error', 'stalledUP', 'stalledDL', 'stalled (no seeds)', 'missingFiles']:

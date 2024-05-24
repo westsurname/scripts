@@ -81,11 +81,25 @@ def cleanFileName(name):
     
     return result.strip()
 
+refreshingTask = None
+
 async def refreshArr(arr: Arr, count=60):
     # TODO: Change to refresh until found/imported
-    for _ in range(count):
-        arr.refreshMonitoredDownloads()
-        await asyncio.sleep(1)
+    async def refresh():
+        for _ in range(count):
+            arr.refreshMonitoredDownloads()
+            await asyncio.sleep(1)
+
+    global refreshingTask
+    if refreshingTask and not refreshingTask.done():
+        print("Refresh already in progress, restarting...")
+        refreshingTask.cancel()
+
+    refreshingTask = asyncio.createTask(refresh())
+    try:
+        await refreshingTask
+    except asyncio.CancelledError:
+        pass
 
 def copyFiles(file: TorrentFileInfo, folderPathMountTorrent, arr: Arr):
     # Consider removing this and always streaming
