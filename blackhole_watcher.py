@@ -1,6 +1,7 @@
+import asyncio
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from blackhole import start, getPath
+from blackhole import start, processUncached, getPath
 
 class BlackholeHandler(FileSystemEventHandler):
     def __init__(self, is_radarr):
@@ -18,6 +19,12 @@ class BlackholeHandler(FileSystemEventHandler):
                 self.is_processing = False
 
 
+async def scheduleProcessUncached():
+    while True:
+        await asyncio.sleep(600)  # 10 minutes
+        await processUncached()
+
+
 if __name__ == "__main__":
     print("Watching blackhole")
 
@@ -33,6 +40,7 @@ if __name__ == "__main__":
     try:
         radarr_observer.start()
         sonarr_observer.start()
+        asyncio.run(scheduleProcessUncached())
     except KeyboardInterrupt:
         radarr_observer.stop()
         sonarr_observer.stop()
