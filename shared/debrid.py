@@ -453,6 +453,10 @@ class Torbox(TorrentBase):
         
         response = request.json()
         self.print('response info:', response)
+        
+        if response.get('detail') == 'queued':
+            return None
+        
         self.id = response['data']['torrent_id']
 
         return self.id
