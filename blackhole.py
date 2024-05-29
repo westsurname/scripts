@@ -255,9 +255,6 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
         def print(*values: object):
             _print(f"[{file.fileInfo.filenameWithoutExt}]", *values)
 
-        await asyncio.sleep(1) # Wait before processing the file in case it isn't fully written yet.
-        os.renames(file.fileInfo.filePath, file.fileInfo.filePathProcessing)
-
         from concurrent.futures import ThreadPoolExecutor
 
         def read_file(path):
@@ -276,6 +273,9 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                     return False
                 finally:
                     executor.shutdown(wait=False)
+
+        time.sleep(1) # Wait before processing the file in case it isn't fully written yet.
+        os.renames(file.fileInfo.filePath, file.fileInfo.filePathProcessing)
 
         with open(file.fileInfo.filePathProcessing, 'rb' if file.torrentInfo.isDotTorrentFile else 'r') as f:
             fileData = f.read()
