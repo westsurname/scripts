@@ -9,7 +9,6 @@ class BlackholeHandler(FileSystemEventHandler):
         self.path_name = getPath(is_radarr, create=True)
 
     def on_created(self, event=None):
-        print("Watch found")
         if not event or (not event.is_directory and event.src_path.lower().endswith((".torrent", ".magnet"))):
             start(self.is_radarr)
 
