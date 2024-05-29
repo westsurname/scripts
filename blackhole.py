@@ -318,9 +318,10 @@ def fail(torrent: TorrentBase, arr: Arr):
         _print(f"[{torrent.__class__.__name__}] [{torrent.file.fileInfo.filenameWithoutExt}]", *values)
 
     print(f"Failing")
-
+    
+    torrentHash = torrent.getHash()
     history = arr.getHistory(blackhole['historyPageSize'])['records']
-    items = (item for item in history if item['data'].get('torrentInfoHash', '').casefold() == torrent.getHash().casefold() or cleanFileName(item['sourceTitle'].casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold())
+    items = [item for item in history if item['data'].get('torrentInfoHash', '').casefold() == torrentHash.casefold() or cleanFileName(item['sourceTitle'].casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
     
     if not items:
         raise Exception("No history items found to cancel")
