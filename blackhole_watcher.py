@@ -5,24 +5,22 @@ from blackhole import start, getPath
 class BlackholeHandler(FileSystemEventHandler):
     def __init__(self, is_radarr):
         super().__init__()
-        self.is_processing = False
         self.is_radarr = is_radarr
         self.path_name = getPath(is_radarr, create=True)
 
-    def on_created(self, event):
-        if not self.is_processing and not event.is_directory and event.src_path.lower().endswith((".torrent", ".magnet")):
-            self.is_processing = True
-            try:
-                start(self.is_radarr)
-            finally:
-                self.is_processing = False
-
+    def on_created(self, event=None):
+        print("Watch found")
+        if not event or (not event.is_directory and event.src_path.lower().endswith((".torrent", ".magnet"))):
+            start(self.is_radarr)
 
 if __name__ == "__main__":
     print("Watching blackhole")
 
     radarr_handler = BlackholeHandler(is_radarr=True)
     sonarr_handler = BlackholeHandler(is_radarr=False)
+
+    radarr_handler.on_created()
+    sonarr_handler.on_created()
 
     radarr_observer = Observer()
     radarr_observer.schedule(radarr_handler, radarr_handler.path_name)
