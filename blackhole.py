@@ -274,7 +274,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                 finally:
                     executor.shutdown(wait=False)
 
-        time.sleep(1) # Wait before processing the file in case it isn't fully written yet.
+        time.sleep(.1) # Wait before processing the file in case it isn't fully written yet.
         os.renames(file.fileInfo.filePath, file.fileInfo.filePathProcessing)
 
         with open(file.fileInfo.filePathProcessing, 'rb' if file.torrentInfo.isDotTorrentFile else 'r') as f:

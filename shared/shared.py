@@ -225,6 +225,8 @@ def retryRequest(
             else:
                 print(f"URL: {response.url}")
                 print(f"Status code: {response.status_code}")
+                print(f"Message: {response.reason}")
+                print(f"Response: {response.content}")
                 print(f"Attempt {attempt + 1} failed")
                 if attempt < retries:
                     print(f"Retrying in {delay} seconds...")
