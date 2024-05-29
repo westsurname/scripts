@@ -502,6 +502,8 @@ class Magnet(TorrentBase):
     def addTorrent(self):
         return self._addMagnetFile()
 
+
+class RealDebridTorrent(RealDebrid, Torrent):
     pass
 
 class RealDebridMagnet(RealDebrid, Magnet):
@@ -512,4 +514,3 @@ class TorboxTorrent(Torbox, Torrent):
 
 class TorboxMagnet(Torbox, Magnet):
     pass   
-
