@@ -1,5 +1,8 @@
 import os
 import re
+import time
+import requests
+from typing import Callable, Optional
 from environs import Env
 
 env = Env()
@@ -198,3 +201,39 @@ def checkRequiredEnvs(requiredEnvs):
         else:
             previousSuccess = True
 
+def retryRequest(
+    requestFunc: Callable[[], requests.Response], 
+    print: Callable[..., None] = print, 
+    retries: int = 1, 
+    delay: int = 1
+) -> Optional[requests.Response]:
+    """
+    Retry a request if the response status code is not in the 200 range.
+
+    :param requestFunc: A callable that returns an HTTP response.
+    :param print: Optional print function for logging.
+    :param retries: The number of times to retry the request after the initial attempt.
+    :param delay: The delay between retries in seconds.
+    :return: The response object or None if all attempts fail.
+    """
+    attempts = retries + 1  # Total attempts including the initial one
+    for attempt in range(attempts):
+        try:
+            response = requestFunc()
+            if 200 <= response.status_code < 300:
+                return response
+            else:
+                print(f"URL: {response.url}")
+                print(f"Status code: {response.status_code}")
+                print(f"Attempt {attempt + 1} failed")
+                if attempt < retries:
+                    print(f"Retrying in {delay} seconds...")
+                    time.sleep(delay)
+        except requests.RequestException as e:
+            print(f"URL: {response.url if 'response' in locals() else 'unknown'}")
+            print(f"Attempt {attempt + 1} encountered an error: {e}")
+            if attempt < retries:
+                print(f"Retrying in {delay} seconds...")
+                time.sleep(delay)
+    
+    return None

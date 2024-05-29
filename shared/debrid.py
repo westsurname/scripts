@@ -8,8 +8,7 @@ from abc import ABC, abstractmethod
 from urllib.parse import urljoin
 from datetime import datetime
 from shared.discord import discordUpdate
-from shared.shared import realdebrid, torbox, mediaExtensions, checkRequiredEnvs
-from werkzeug.utils import cached_property
+from shared.shared import realdebrid, torbox, mediaExtensions, checkRequiredEnvs, retryRequest
 
 def validateDebridEnabled():
     if not realdebrid['enabled'] and not torbox['enabled']:
@@ -171,8 +170,7 @@ class RealDebrid(TorrentBase):
             if not instantAvailability:
                 return False
 
-        self.addTorrent()
-        return True
+        return not not self.addTorrent()
 
     def _getInstantAvailability(self, refresh=False):
         if refresh or not self._instantAvailability:
@@ -183,7 +181,13 @@ class RealDebrid(TorrentBase):
                 self.incompatibleHashSize = True
                 return True
 
-            instantAvailabilityRequest = requests.get(urljoin(realdebrid['host'], f"torrents/instantAvailability/{torrentHash}"), headers=self.headers)
+            instantAvailabilityRequest = retryRequest(
+                lambda: requests.get(urljoin(realdebrid['host'], f"torrents/instantAvailability/{torrentHash}"), headers=self.headers),
+                print=self.print
+            )
+            if instantAvailabilityRequest is None:
+                return None
+
             instantAvailabilities = instantAvailabilityRequest.json()
             self.print('instantAvailabilities:', instantAvailabilities)
             instantAvailabilityHosters = next(iter(instantAvailabilities.values()))
@@ -194,7 +198,13 @@ class RealDebrid(TorrentBase):
         return self._instantAvailability
     
     def _getAvailableHost(self):
-        availableHostsRequest = requests.get(urljoin(realdebrid['host'], "torrents/availableHosts"), headers=self.headers)
+        availableHostsRequest = retryRequest(
+            lambda: requests.get(urljoin(realdebrid['host'], "torrents/availableHosts"), headers=self.headers),
+            print=self.print
+        )
+        if availableHostsRequest is None:
+            return None
+
         availableHosts = availableHostsRequest.json()
         return availableHosts[0]['host']
     
@@ -202,10 +212,16 @@ class RealDebrid(TorrentBase):
         self._enforceId()
 
         if refresh or not self._info:
-            infoRequest = requests.get(urljoin(realdebrid['host'], f"torrents/info/{self.id}"), headers=self.headers)
-            info = infoRequest.json()
-            info['status'] = self._normalize_status(info['status'])
-            self._info = info
+            infoRequest = retryRequest(
+                lambda: requests.get(urljoin(realdebrid['host'], f"torrents/info/{self.id}"), headers=self.headers),
+                print=self.print
+            )
+            if infoRequest is None:
+                self._info = None
+            else:
+                info = infoRequest.json()
+                info['status'] = self._normalize_status(info['status'])
+                self._info = info
 
         return self._info
 
@@ -213,6 +229,9 @@ class RealDebrid(TorrentBase):
         self._enforceId()
 
         info = await self.getInfo()
+        if info is None:
+            return False
+
         self.print('files:', info['files'])
         mediaFiles = [file for file in info['files'] if os.path.splitext(file['path'])[1].lower() in mediaExtensions]
         
@@ -241,14 +260,24 @@ class RealDebrid(TorrentBase):
             discordUpdate('largest file:', largestMediaFile['path'])
                 
         files = {'files': [largestMediaFileId] if self.onlyLargestFile else ','.join(mediaFileIds)}
-        selectFilesRequest = requests.post(urljoin(realdebrid['host'], f"torrents/selectFiles/{self.id}"), headers=self.headers, data=files)
+        selectFilesRequest = retryRequest(
+            lambda: requests.post(urljoin(realdebrid['host'], f"torrents/selectFiles/{self.id}"), headers=self.headers, data=files),
+            print=self.print
+        )
+        if selectFilesRequest is None:
+            return False
         
         return True
 
     def delete(self):
         self._enforceId()
 
-        deleteRequest = requests.delete(urljoin(realdebrid['host'], f"torrents/delete/{self.id}"), headers=self.headers)
+        deleteRequest = retryRequest(
+            lambda: requests.delete(urljoin(realdebrid['host'], f"torrents/delete/{self.id}"), headers=self.headers),
+            print=self.print
+        )
+        return not not deleteRequest
+
 
     async def getTorrentPath(self):
         filename = (await self.getInfo())['filename']
@@ -272,10 +301,17 @@ class RealDebrid(TorrentBase):
 
     def _addFile(self, endpoint, data):
         host = self._getAvailableHost()
+        if host is None:
+            return None
 
-        request = requests.post(urljoin(realdebrid['host'], endpoint), params={'host': host}, headers=self.headers, data=data)
+        request = retryRequest(
+            lambda: requests.post(urljoin(realdebrid['host'], endpoint), params={'host': host}, headers=self.headers, data=data),
+            print=self.print
+        )
+        if request is None:
+            return None
+
         response = request.json()
-
         self.print('response info:', response)
         self.id = response['id']
 
@@ -306,9 +342,13 @@ class Torbox(TorrentBase):
         self.submittedTime = None
         self.lastInactiveCheck = None
 
-        userInfoRequest = requests.get(urljoin(torbox['host'], "user/me"), headers=self.headers)
-        userInfo = userInfoRequest.json()
-        self.authId = userInfo['data']['auth_id']
+        userInfoRequest = retryRequest(
+            lambda: requests.get(urljoin(torbox['host'], "user/me"), headers=self.headers),
+            print=self.print
+        )
+        if userInfoRequest is not None:
+            userInfo = userInfoRequest.json()
+            self.authId = userInfo['data']['auth_id']
 
     def submitTorrent(self):
         if self.failIfNotCached:
@@ -316,21 +356,28 @@ class Torbox(TorrentBase):
             self.print('instantAvailability:', not not instantAvailability)
             if not instantAvailability:
                 return False
-
-        self.addTorrent()
-        self.submittedTime = datetime.now()
-        return True
-
+            
+        if self.addTorrent():
+            self.submittedTime = datetime.now()
+            return True
+        return False
+    
     def _getInstantAvailability(self, refresh=False):
         if refresh or not self._instantAvailability:
             torrentHash = self.getHash()
             self.print('hash:', torrentHash)
 
-            instantAvailabilityRequest = requests.get(
-                urljoin(torbox['host'], "torrents/checkcached"),
-                headers=self.headers,
-                params={'hash': torrentHash, 'format': 'object'}
+            instantAvailabilityRequest = retryRequest(
+                lambda: requests.get(
+                    urljoin(torbox['host'], "torrents/checkcached"),
+                    headers=self.headers,
+                    params={'hash': torrentHash, 'format': 'object'}
+                ),
+                print=self.print
             )
+            if instantAvailabilityRequest is None:
+                return None
+
             instantAvailabilities = instantAvailabilityRequest.json()
             self.print('instantAvailabilities:', instantAvailabilities)
             self._instantAvailability = instantAvailabilities['data']['data'] if 'data' in instantAvailabilities and 'data' in instantAvailabilities['data'] and instantAvailabilities['data']['data'] is not False else None
@@ -341,15 +388,26 @@ class Torbox(TorrentBase):
         self._enforceId()
 
         if refresh or not self._info:
+            if not self.authId:
+                return None
+            
             currentTime = datetime.now()
             if (currentTime - self.submittedTime).total_seconds() < 300:
                 if not self.lastInactiveCheck or (currentTime - self.lastInactiveCheck).total_seconds() > 5:
                     inactiveCheckUrl = f"https://relay.torbox.app/v1/inactivecheck/torrent/{self.authId}/{self.id}"
-                    requests.get(inactiveCheckUrl)
+                    retryRequest(
+                        lambda: requests.get(inactiveCheckUrl),
+                        print=self.print
+                    )
                     self.lastInactiveCheck = currentTime
-            
             for _ in range(60):
-                infoRequest = requests.get(urljoin(torbox['host'], "torrents/mylist"), headers=self.headers)
+                infoRequest = retryRequest(
+                    lambda: requests.get(urljoin(torbox['host'], "torrents/mylist"), headers=self.headers),
+                    print=self.print
+                )
+                if infoRequest is None:
+                    return None
+
                 torrents = infoRequest.json()['data']
                 
                 for torrent in torrents:
@@ -367,7 +425,11 @@ class Torbox(TorrentBase):
     def delete(self):
         self._enforceId()
 
-        deleteRequest = requests.delete(urljoin(torbox['host'], "torrents/controltorrent"), headers=self.headers, data={'torrent_id': self.id, 'operation': "Delete"})
+        deleteRequest = retryRequest(
+            lambda: requests.delete(urljoin(torbox['host'], "torrents/controltorrent"), headers=self.headers, data={'torrent_id': self.id, 'operation': "Delete"}),
+            print=self.print
+        )
+        return not not deleteRequest
 
     async def getTorrentPath(self):
         filename = (await self.getInfo())['name']
@@ -382,7 +444,12 @@ class Torbox(TorrentBase):
         return folderPathMountTorrent
 
     def _addFile(self, endpoint, data=None, files=None):
-        request = requests.post(urljoin(torbox['host'], endpoint), headers=self.headers, data=data, files=files)
+        request = retryRequest(
+            lambda: requests.post(urljoin(torbox['host'], endpoint), headers=self.headers, data=data, files=files),
+            print=self.print
+        )
+        if request is None:
+            return None
         
         response = request.json()
         self.print('response info:', response)
@@ -421,7 +488,7 @@ class Torrent(TorrentBase):
         return self._hash
 
     def addTorrent(self):
-        self._addTorrentFile()
+        return self._addTorrentFile()
 
 class Magnet(TorrentBase):
     def getHash(self):
@@ -433,9 +500,8 @@ class Magnet(TorrentBase):
         return self._hash
     
     def addTorrent(self):
-        self._addMagnetFile()
+        return self._addMagnetFile()
 
-class RealDebridTorrent(RealDebrid, Torrent):
     pass
 
 class RealDebridMagnet(RealDebrid, Magnet):
@@ -446,3 +512,4 @@ class TorboxTorrent(Torbox, Torrent):
 
 class TorboxMagnet(Torbox, Magnet):
     pass   
+

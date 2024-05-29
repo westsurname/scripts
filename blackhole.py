@@ -148,6 +148,9 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) 
     while True:
         count += 1
         info = await torrent.getInfo(refresh=True)
+        if not info:
+            return False
+
         status = info['status']
         
         print('status:', status)
