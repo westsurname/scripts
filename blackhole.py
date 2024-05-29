@@ -274,6 +274,9 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                 finally:
                     executor.shutdown(wait=False)
 
+        await asyncio.sleep(1) # Wait before processing the file in case it isn't fully written yet.
+        os.renames(file.fileInfo.filePath, file.fileInfo.filePathProcessing)
+        
         with open(file.fileInfo.filePathProcessing, 'rb' if file.torrentInfo.isDotTorrentFile else 'r') as f:
             fileData = f.read()
             f.seek(0)
@@ -353,8 +356,6 @@ async def on_created(isRadarr):
         while firstGo or not all(future.done() for future in futures):
             files = getFiles(isRadarr)
             if files:
-                for file in files:
-                    os.renames(file.fileInfo.filePath, file.fileInfo.filePathProcessing)
                 futures.append(asyncio.gather(*(processFile(file, arr, isRadarr) for file in files)))
             elif firstGo:
                 print('No torrent files found')
