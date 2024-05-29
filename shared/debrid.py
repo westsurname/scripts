@@ -299,13 +299,13 @@ class RealDebrid(TorrentBase):
 
         return folderPathMountTorrent
 
-    def _addFile(self, endpoint, data):
+    def _addFile(self, request, endpoint, data):
         host = self._getAvailableHost()
         if host is None:
             return None
 
         request = retryRequest(
-            lambda: requests.post(urljoin(realdebrid['host'], endpoint), params={'host': host}, headers=self.headers, data=data),
+            lambda: request(urljoin(realdebrid['host'], endpoint), params={'host': host}, headers=self.headers, data=data),
             print=self.print
         )
         if request is None:
@@ -318,10 +318,10 @@ class RealDebrid(TorrentBase):
         return self.id
 
     def _addTorrentFile(self):
-        return self._addFile("torrents/addTorrent", self.f)
+        return self._addFile(requests.put, "torrents/addTorrent", self.f)
 
     def _addMagnetFile(self):
-        return self._addFile("torrents/addMagnet", {'magnet': self.fileData})
+        return self._addFile(requests.post, "torrents/addMagnet", {'magnet': self.fileData})
     
     def _normalize_status(self, status):
         if status in ['waiting_files_selection']:
@@ -443,9 +443,9 @@ class Torbox(TorrentBase):
 
         return folderPathMountTorrent
 
-    def _addFile(self, endpoint, data=None, files=None):
+    def _addFile(self, data=None, files=None):
         request = retryRequest(
-            lambda: requests.post(urljoin(torbox['host'], endpoint), headers=self.headers, data=data, files=files),
+            lambda: requests.post(urljoin(torbox['host'], "torrents/createtorrent"), headers=self.headers, data=data, files=files),
             print=self.print
         )
         if request is None:
@@ -460,10 +460,10 @@ class Torbox(TorrentBase):
     def _addTorrentFile(self):
         nametorrent = self.f.name.split('/')[-1]
         files = {'file': (nametorrent, self.f, 'application/x-bittorrent')}
-        return self._addFile("torrents/createtorrent", files=files)
+        return self._addFile(files=files)
 
     def _addMagnetFile(self):
-        return self._addFile("torrents/createtorrent", data={'magnet': self.fileData})
+        return self._addFile(data={'magnet': self.fileData})
 
     def _normalize_status(self, status, download_finished):
         if download_finished:
