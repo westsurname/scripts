@@ -8,7 +8,8 @@ from abc import ABC, abstractmethod
 from urllib.parse import urljoin
 from datetime import datetime
 from shared.discord import discordUpdate
-from shared.shared import realdebrid, torbox, mediaExtensions, checkRequiredEnvs, retryRequest
+from shared.requests import retryRequest
+from shared.shared import realdebrid, torbox, mediaExtensions, checkRequiredEnvs
 
 def validateDebridEnabled():
     if not realdebrid['enabled'] and not torbox['enabled']:
