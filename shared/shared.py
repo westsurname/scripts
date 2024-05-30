@@ -20,7 +20,6 @@ watchlist = {
 }
 
 blackhole = {
-    'rdMountTorrentsPath': env.string('BLACKHOLE_RD_MOUNT_TORRENTS_PATH', default=None),
     'baseWatchPath': env.string('BLACKHOLE_BASE_WATCH_PATH', default=None),
     'radarrPath': env.string('BLACKHOLE_RADARR_PATH', default=None),
     'sonarrPath': env.string('BLACKHOLE_SONARR_PATH', default=None),
@@ -65,8 +64,17 @@ tautulli = {
 }
 
 realdebrid = {
+    'enabled': env.bool('REALDEBRID_ENABLED', default=True),
     'host': env.string('REALDEBRID_HOST', default=None),
-    'apiKey': env.string('REALDEBRID_API_KEY', default=None)
+    'apiKey': env.string('REALDEBRID_API_KEY', default=None),
+    'mountTorrentsPath': env.string('REALDEBRID_MOUNT_TORRENTS_PATH', env.string('BLACKHOLE_RD_MOUNT_TORRENTS_PATH', default=None))
+}
+
+torbox = {
+    'enabled': env.bool('TORBOX_ENABLED', default=None),
+    'host': env.string('TORBOX_HOST', default=None),
+    'apiKey': env.string('TORBOX_API_KEY', default=None),
+    'mountTorrentsPath': env.string('TORBOX_MOUNT_TORRENTS_PATH', default=None)
 }
 
 trakt = {
@@ -189,4 +197,3 @@ def checkRequiredEnvs(requiredEnvs):
                 previousSuccess = True
         else:
             previousSuccess = True
-
