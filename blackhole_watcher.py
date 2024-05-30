@@ -13,7 +13,7 @@ class BlackholeHandler(FileSystemEventHandler):
         if not event.is_directory and event.src_path.lower().endswith((".torrent", ".magnet")):
             asyncio.run(on_created(self.is_radarr))
 
-    async def on_created(self):
+    async def on_run(self):
         await on_created(self.is_radarr)
 
 async def main():
@@ -33,8 +33,8 @@ async def main():
             sonarr_observer.start()
             
             await asyncio.gather(
-                radarr_handler.on_created(),
-                sonarr_handler.on_created()
+                radarr_handler.on_run(),
+                sonarr_handler.on_run()
             )
         except KeyboardInterrupt:
             radarr_observer.stop()
