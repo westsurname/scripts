@@ -327,8 +327,9 @@ def fail(torrent: TorrentBase, arr: Arr):
     items = [item for item in history if item['data'].get('torrentInfoHash', '').casefold() == torrentHash.casefold() or cleanFileName(item['sourceTitle'].casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
     
     if not items:
-        raise Exception("No history items found to cancel")
-    
+        message = "No history items found to mark as failed. Arr will not attempt to grab an alternative."
+        print(message)
+        discordError(message, torrent.file.fileInfo.filenameWithoutExt)
     for item in items:
         # TODO: See if we can fail without blacklisting as cached items constantly changes
         arr.failHistoryItem(item['id'])
@@ -372,8 +373,5 @@ async def on_created(isRadarr):
         discordError(f"Error processing", e)
     print("Exit 'on_created'")
 
-def start(isRadarr):
-    asyncio.run(on_created(isRadarr))
-
 if __name__ == "__main__":
-    start(isRadarr=sys.argv[1] == 'radarr')
+    asyncio.run(on_created(isRadarr=sys.argv[1] == 'radarr'))

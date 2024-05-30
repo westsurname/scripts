@@ -4,6 +4,7 @@ import time
 import requests
 from typing import Callable, Optional
 from environs import Env
+from shared.discord import discordError, discordUpdate
 
 env = Env()
 env.read_env()
@@ -223,18 +224,34 @@ def retryRequest(
             if 200 <= response.status_code < 300:
                 return response
             else:
-                print(f"URL: {response.url}")
-                print(f"Status code: {response.status_code}")
-                print(f"Message: {response.reason}")
-                print(f"Response: {response.content}")
-                print(f"Attempt {attempt + 1} failed")
-                if attempt < retries:
+                message = [
+                    f"URL: {response.url}",
+                    f"Status code: {response.status_code}",
+                    f"Message: {response.reason}",
+                    f"Response: {response.content}",
+                    f"Attempt {attempt + 1} failed"
+                ]
+                for line in message:
+                    print(line)
+                if attempt == retries:
+                    discordError("Request Failed", "\n".join(message))
+                else:
+                    update_message = message + [f"Retrying in {delay} seconds..."]
+                    discordUpdate("Retrying Request", "\n".join(update_message))
                     print(f"Retrying in {delay} seconds...")
                     time.sleep(delay)
         except requests.RequestException as e:
-            print(f"URL: {response.url if 'response' in locals() else 'unknown'}")
-            print(f"Attempt {attempt + 1} encountered an error: {e}")
-            if attempt < retries:
+            message = [
+                f"URL: {response.url if 'response' in locals() else 'unknown'}",
+                f"Attempt {attempt + 1} encountered an error: {e}"
+            ]
+            for line in message:
+                print(line)
+            if attempt == retries:
+                discordError("Request Exception", "\n".join(message))
+            else:
+                update_message = message + [f"Retrying in {delay} seconds..."]
+                discordUpdate("Retrying Request", "\n".join(update_message))
                 print(f"Retrying in {delay} seconds...")
                 time.sleep(delay)
     
