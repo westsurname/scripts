@@ -10,7 +10,7 @@ from datetime import datetime
 # import urllib
 from shared.discord import discordError, discordUpdate
 from shared.shared import realdebrid, torbox, blackhole, plex, checkRequiredEnvs
-from shared.arr import Arr, Radarr, Sonarr
+from shared.arr import Arr, Radarr, Sonarr, Lidarr
 from shared.debrid import TorrentBase, RealDebridTorrent, RealDebridMagnet, TorboxTorrent, TorboxMagnet
 
 _print = print
@@ -22,6 +22,7 @@ requiredEnvs = {
     'Blackhole base watch path': (blackhole['baseWatchPath'],),
     'Blackhole Radarr path': (blackhole['radarrPath'],),
     'Blackhole Sonarr path': (blackhole['sonarrPath'],),
+    'Blackhole Lidarr path': (blackhole['lidarrPath'],),
     'Blackhole fail if not cached': (blackhole['failIfNotCached'],),
     'Blackhole RD mount refresh seconds': (blackhole['rdMountRefreshSeconds'],),
     'Blackhole wait for torrent timeout': (blackhole['waitForTorrentTimeout'],),
@@ -44,23 +45,29 @@ class TorrentFileInfo():
             self.isTorrentOrMagnet = isTorrentOrMagnet
             self.isDotTorrentFile = isDotTorrentFile
 
-    def __init__(self, filename, isRadarr) -> None:
+    def __init__(self, filename, isRadarr=False, isSonarr=False, isLidarr=False) -> None:
         print('filename:', filename)
-        baseBath = getPath(isRadarr)
+        basePath = getPath(isRadarr, isSonarr, isLidarr)
         isDotTorrentFile = filename.casefold().endswith('.torrent')
         isTorrentOrMagnet = isDotTorrentFile or filename.casefold().endswith('.magnet')
         filenameWithoutExt, _ = os.path.splitext(filename)
-        filePath = os.path.join(baseBath, filename)
-        filePathProcessing = os.path.join(baseBath, 'processing', filename)
-        folderPathCompleted = os.path.join(baseBath, 'completed', filenameWithoutExt)
+        filePath = os.path.join(basePath, filename)
+        filePathProcessing = os.path.join(basePath, 'processing', filename)
+        folderPathCompleted = os.path.join(basePath, 'completed', filenameWithoutExt)
         
         self.fileInfo = self.FileInfo(filename, filenameWithoutExt, filePath, filePathProcessing, folderPathCompleted)
         self.torrentInfo = self.TorrentInfo(isTorrentOrMagnet, isDotTorrentFile)
 
-def getPath(isRadarr, create=False):
+def getPath(isRadarr=False, isSonarr=False, isLidarr=False, create=False):
     baseWatchPath = blackhole['baseWatchPath']
     absoluteBaseWatchPath = baseWatchPath if os.path.isabs(baseWatchPath) else os.path.abspath(baseWatchPath)
-    finalPath = os.path.join(absoluteBaseWatchPath, blackhole['radarrPath'] if isRadarr else blackhole['sonarrPath'])
+
+    if isRadarr:
+        finalPath = os.path.join(absoluteBaseWatchPath, blackhole['radarrPath'])
+    elif isSonarr:
+        finalPath = os.path.join(absoluteBaseWatchPath, blackhole['sonarrPath'])
+    elif isLidarr:
+        finalPath = os.path.join(absoluteBaseWatchPath, blackhole['lidarrPath'])
 
     if create:
         for sub_path in ['', 'processing', 'completed']:
@@ -248,7 +255,7 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) 
 
             return False
 
-async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
+async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr=False, isSonarr=False, isLidarr=False):
     try:
         _print = globals()['print']
 
@@ -287,7 +294,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
             if torbox['enabled']:
                 torrentConstructors.append(TorboxTorrent if file.torrentInfo.isDotTorrentFile else TorboxMagnet)
 
-            onlyLargestFile = isRadarr or bool(re.search(r'S[\d]{2}E[\d]{2}', file.fileInfo.filename))
+            onlyLargestFile = isRadarr or isLidarr or bool(re.search(r'S[\d]{2}E[\d]{2}', file.fileInfo.filename))
             if not blackhole['failIfNotCached']:
                 torrents = [constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile) for constructor in torrentConstructors]
                 results = await asyncio.gather(*(processTorrent(torrent, file, arr) for torrent in torrents))
@@ -335,29 +342,29 @@ def fail(torrent: TorrentBase, arr: Arr):
         arr.failHistoryItem(item['id'])
     print(f"Failed")
     
-def getFiles(isRadarr):
+def getFiles(isRadarr=False, isSonarr=False, isLidarr=False):
     print('getFiles')
-    files = (TorrentFileInfo(filename, isRadarr) for filename in os.listdir(getPath(isRadarr)) if filename not in ['processing', 'completed'])
+    files = (TorrentFileInfo(filename, isRadarr, isSonarr, isLidarr) for filename in os.listdir(getPath(isRadarr, isSonarr, isLidarr)) if filename not in ['processing', 'completed'])
     return [file for file in files if file.torrentInfo.isTorrentOrMagnet]
 
-async def on_created(isRadarr):
+async def on_created(type):
     print("Enter 'on_created'")
     try:
-        print('radarr/sonarr:', 'radarr' if isRadarr else 'sonarr')
-
-        if isRadarr:
+        if type == 'radarr':
             arr = Radarr()
-        else:
+        elif type == 'sonarr':
             arr = Sonarr()
+        elif type == 'lidarr':
+            arr = Lidarr()
 
         futures: list[asyncio.Future] = []
         firstGo = True
         
         # Consider switching to a queue
         while firstGo or not all(future.done() for future in futures):
-            files = getFiles(isRadarr)
+            files = getFiles(type == 'radarr', type == 'sonarr', type == 'lidarr')
             if files:
-                futures.append(asyncio.gather(*(processFile(file, arr, isRadarr) for file in files)))
+                futures.append(asyncio.gather(*(processFile(file, arr, type == 'radarr', type == 'sonarr', type == 'lidarr') for file in files)))
             elif firstGo:
                 print('No torrent files found')
             firstGo = False
@@ -374,4 +381,8 @@ async def on_created(isRadarr):
     print("Exit 'on_created'")
 
 if __name__ == "__main__":
-    asyncio.run(on_created(isRadarr=sys.argv[1] == 'radarr'))
+    type = sys.argv[1].lower()
+    if type not in ['radarr', 'sonarr', 'lidarr']:
+        print("Invalid argument. Expected 'radarr', 'sonarr', or 'lidarr'.")
+        sys.exit(1)
+    asyncio.run(on_created(type))
