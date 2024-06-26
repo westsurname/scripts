@@ -1,10 +1,11 @@
 import os
 import argparse
 import time
-import shared.debrid # Run validation
+import shared.debrid  # Run validation
 from shared.arr import Sonarr, Radarr
 from shared.discord import discordUpdate
 from shared.shared import repair, realdebrid, torbox, intersperse
+import requests
 
 def parse_interval(interval_str):
     """Parse a smart interval string (e.g., '1w2d3h4m5s') into seconds."""
@@ -20,6 +21,37 @@ def parse_interval(interval_str):
             total_seconds += int(current_number) * time_dict[char]
             current_number = ''
     return total_seconds
+
+def refresh_and_rescan(media, arr):
+    """Send refresh and rescan command to Sonarr or Radarr."""
+    try:
+        if isinstance(arr, Sonarr):
+            url = f"{os.getenv('SONARR_HOST')}/api/command"
+            api_key = os.getenv('SONARR_API_KEY')
+            payload = {'name': 'RescanSeries', 'seriesId': media.id}
+        elif isinstance(arr, Radarr):
+            url = f"{os.getenv('RADARR_HOST')}/api/v3/command"
+            api_key = os.getenv('RADARR_API_KEY')
+            payload = {'name': 'RescanMovie', 'movieId': media.id}
+        else:
+            print("Unknown Arr instance.")
+            return
+
+        headers = {
+            'Content-Type': 'application/json',
+            'X-Api-Key': api_key
+        }
+
+        print(f"Sending refresh & rescan command to {arr.__class__.__name__} for {media.title}. URL: {url}, Payload: {payload}")
+
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code == 201:
+            print(f"Successfully sent refresh & rescan command to {arr.__class__.__name__} for {media.title}.")
+        else:
+            print(f"Failed to send refresh & rescan command to {arr.__class__.__name__} for {media.title}. Response: {response.text}")
+
+    except Exception as e:
+        print(f"Error sending refresh & rescan command: {str(e)}")
 
 # Parse arguments for dry run, no confirm options, and optional intervals
 parser = argparse.ArgumentParser(description='Repair broken symlinks and manage media files.')
@@ -67,16 +99,20 @@ def main():
 
             childFiles = files.get(childId, [])
             for childFile in childFiles:
-
                 fullPath = childFile.path
-                destinationPath = os.readlink(fullPath)
-                realPath = os.path.realpath(fullPath)
-                realPaths.append(realPath)
-                
-                if os.path.islink(fullPath):
-                    if ((realdebrid['enabled'] and destinationPath.startswith(realdebrid['mountTorrentsPath']) and not os.path.exists(destinationPath)) or 
-                       (torbox['enabled'] and destinationPath.startswith(torbox['mountTorrentsPath']) and not os.path.exists(realPath))):
-                        brokenSymlinks.append(realPath)
+                try:
+                    destinationPath = os.readlink(fullPath)
+                    realPath = os.path.realpath(fullPath)
+                    realPaths.append(realPath)
+                    
+                    if os.path.islink(fullPath):
+                        if ((realdebrid['enabled'] and destinationPath.startswith(realdebrid['mountTorrentsPath']) and not os.path.exists(destinationPath)) or 
+                           (torbox['enabled'] and destinationPath.startswith(torbox['mountTorrentsPath']) and not os.path.exists(realPath))):
+                            brokenSymlinks.append(realPath)
+                except FileNotFoundError:
+                    print(f"FileNotFoundError: {fullPath} not found.")
+                    refresh_and_rescan(media, arr)
+                    continue
             
             # If not full season just repair individual episodes?
             if brokenSymlinks:
@@ -90,16 +126,20 @@ def main():
                     print("Deleting files:")
                     [print(childFile.path) for childFile in childFiles]
                     if not args.dry_run:
-                        results = arr.deleteFiles(childFiles)
-                        print("Remonitoring")
-                        media = arr.get(media.id)
-                        media.setChildMonitored(childId, False)
-                        arr.put(media)
-                        media.setChildMonitored(childId, True)
-                        arr.put(media)
-                        print("Searching for new files")
-                        results = arr.automaticSearch(media, childId)
-                        print(results)
+                        try:
+                            results = arr.deleteFiles(childFiles)
+                            print("Remonitoring")
+                            media = arr.get(media.id)
+                            media.setChildMonitored(childId, False)
+                            arr.put(media)
+                            media.setChildMonitored(childId, True)
+                            arr.put(media)
+                            print("Searching for new files")
+                            results = arr.automaticSearch(media, childId)
+                            print(results)
+                        except FileNotFoundError as e:
+                            print(f"File not found error: {str(e)}")
+                            refresh_and_rescan(media, arr)
                         
                         if repair_interval_seconds > 0:
                             time.sleep(repair_interval_seconds)
