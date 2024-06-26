@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Type, List
 import requests
-from shared.shared import sonarr, radarr, checkRequiredEnvs
+from shared.shared import sonarr, radarr, lidarr, checkRequiredEnvs  # Added lidarr import
 
+# Validation functions for Sonarr
 def validateSonarrHost():
     url = f"{sonarr['host']}"
     try:
@@ -22,6 +23,7 @@ def validateSonarrApiKey():
     
     return True
 
+# Validation functions for Radarr
 def validateRadarrHost():
     url = f"{radarr['host']}"
     try:
@@ -40,11 +42,35 @@ def validateRadarrApiKey():
         return False
     
     return True
+
+# Validation functions for Lidarr
+def validateLidarrHost():
+    url = f"{lidarr['host']}"
+    try:
+        response = requests.get(url)
+        return response.status_code == 200
+    except Exception as e:
+        return False
+
+def validateLidarrApiKey():
+    url = f"{lidarr['host']}/api/v1/system/status?apikey={lidarr['apiKey']}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 401:
+            return False, "Invalid or expired API key."
+    except Exception as e:
+        return False
+    
+    return True
+
+# Required environment variables with validations
 requiredEnvs = {
     'Sonarr host': (sonarr['host'], validateSonarrHost),
     'Sonarr API key': (sonarr['apiKey'], validateSonarrApiKey, True),
     'Radarr host': (radarr['host'], validateRadarrHost),
-    'Radarr API key': (radarr['apiKey'], validateRadarrApiKey, True)
+    'Radarr API key': (radarr['apiKey'], validateRadarrApiKey, True),
+    'Lidarr host': (lidarr['host'], validateLidarrHost),  # Added Lidarr host validation
+    'Lidarr API key': (lidarr['apiKey'], validateLidarrApiKey, True)  # Added Lidarr API key validation
 }
 
 checkRequiredEnvs(requiredEnvs)
@@ -167,7 +193,12 @@ class MovieFile(MediaFile):
     @property
     def parentId(self):
         return self.json['movieId']
-    
+
+class TrackFile(MediaFile):
+    @property
+    def parentId(self):
+        return self.json['albumId']
+
 class Arr(ABC):
     def __init__(self, host: str, apiKey: str, endpoint: str, fileEndpoint: str, childIdName: str, childName: str, constructor: Type[Media], fileConstructor: Type[MediaFile]) -> None:
         self.host = host
@@ -225,6 +256,7 @@ class Arr(ABC):
 
     def _automaticSearchJson(self, media: Media, childId: int):
         pass
+
 class Sonarr(Arr):
     host = sonarr['host']
     apiKey = sonarr['apiKey']
@@ -252,3 +284,36 @@ class Radarr(Arr):
 
     def _automaticSearchJson(self, media: Media, childId: int):
         return {"name": f"{self.childName}Search", f"{self.endpoint}Ids": [media.id]}
+
+class Lidarr(Arr):
+    host = lidarr['host']
+    apiKey = lidarr['apiKey']
+    endpoint = 'artist'
+    fileEndpoint = 'trackfile'
+    childIdName = 'albumId'
+    childName = 'Album'
+
+    def __init__(self) -> None:
+        super().__init__(Lidarr.host, Lidarr.apiKey, Lidarr.endpoint, Lidarr.fileEndpoint, Lidarr.childIdName, Lidarr.childName, Album, TrackFile)
+
+    def _automaticSearchJson(self, media: Media, childId: int):
+        return {"name": f"{self.childName}Search", f"{self.endpoint}Id": media.id, self.childIdName: childId}
+
+class Album(Media):
+    @property
+    def size(self):
+        return self.json['statistics']['sizeOnDisk']
+
+    @property
+    def monitoredChildrenIds(self):
+        return [album['id'] for album in self.json['albums'] if album['monitored']]
+
+    @property
+    def fullyAvailableChildrenIds(self):
+        return [album['id'] for album in self.json['albums'] if album['statistics']['percentOfTracks'] == 100]
+
+    def setChildMonitored(self, childId: int, monitored: bool):
+        for album in self.json['albums']:
+            if album['id'] == childId:
+                album['monitored'] = monitored
+                break
