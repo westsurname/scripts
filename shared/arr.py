@@ -235,6 +235,12 @@ class Arr(ABC):
 
     def failHistoryItem(self, historyId: int):
         failRequest = requests.post(f"{self.host}/api/v3/history/failed/{historyId}?apiKey={self.apiKey}")
+    
+    def removeFailedItem(self, itemId: int):
+        removeRequest = requests.delete(f"{self.host}/api/v3/blocklist/{itemId}?apiKey={self.apiKey}")
+
+    def clearBlocklist(self):
+        commandRequest = requests.post(f"{self.host}/api/v3/command?apiKey={self.apiKey}", json={'name': 'ClearBlocklist'}, headers={'Content-Type': 'application/json'})
 
     def refreshMonitoredDownloads(self):
         commandRequest = requests.post(f"{self.host}/api/v3/command?apiKey={self.apiKey}", json={'name': 'RefreshMonitoredDownloads'}, headers={'Content-Type': 'application/json'})
