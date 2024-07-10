@@ -558,7 +558,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                             print('infoCount > 20')
                             discordError(f"{file.fileInfo.filenameWithoutExt} info attempt count > 20", status)
                         elif count == blackhole['waitForTorrentTimeout']:
-                            print('infoCount == 60 - Failing')
+                            print(f"infoCount == {blackhole['waitForTorrentTimeout']} - Failing")
                             await fail(torrent)
                             break
 

@@ -1,7 +1,10 @@
 import asyncio
 import os
 import glob
-from blackhole import *
+from shared.discord import discordError, discordUpdate, discordStatusUpdate
+from shared.shared import blackhole
+import re
+from blackhole import refreshArr
 
 async def downloader(torrent, file, arr, torrentFile, shared_dict, lock, webhook):
     availableHost = torrent.getAvailableHost()
