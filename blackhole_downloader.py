@@ -4,9 +4,9 @@ import glob
 from shared.discord import discordError, discordUpdate, discordStatusUpdate
 from shared.shared import blackhole
 import re
-from blackhole import refreshArr
 
 async def downloader(torrent, file, arr, torrentFile, shared_dict, lock, webhook):
+    from blackhole import refreshArr
     availableHost = torrent.getAvailableHost()
     activeTorrents = torrent.getActiveTorrents()
 
@@ -26,7 +26,8 @@ async def downloader(torrent, file, arr, torrentFile, shared_dict, lock, webhook
                     lock.acquire()
                     if torrentName in shared_dict:
                         lock.release()
-                        return ## Delete these duplicate torrents from disk
+                        remove_file(torrentFile)
+                        return
                     lock.release()
                     break
             if not torrentExists:
@@ -176,7 +177,9 @@ async def downloader(torrent, file, arr, torrentFile, shared_dict, lock, webhook
                 print(f"infoCount == {blackhole['waitForTorrentTimeout']} - Failing")
                 torrent.delete()
                 break
-
+    remove_file(torrentFile)
+    
+def remove_file(torrentFile)
     if os.path.exists(torrentFile):
         folder_path = os.path.dirname(torrentFile)
         all_files = glob.glob(os.path.join(folder_path, '*'))

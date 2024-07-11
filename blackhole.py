@@ -416,7 +416,9 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                     await downloader(torrent, file, arr, path, shared_dict, lock, webhook)
                 elif not first_item:
                     os.remove(file.fileInfo.filePathProcessing)
-                    os.remove(file.fileInfo.filePath)
+                    if os.path.exists(file.fileInfo.filePath):
+                        os.remove(file.fileInfo.filePath)
+                    return
                     arr.clearBlocklist()
                     allItems = arr.getAll()
                     # TODO: Trigger scan for the deleted torrent which don't exist in history
