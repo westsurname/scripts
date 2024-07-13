@@ -159,6 +159,7 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) 
             if not await torrent.selectFiles():
                 torrent.delete()
                 return False
+            await asyncio.sleep(15)  # Add a 5-second wait between select file calls
         elif status == torrent.STATUS_DOWNLOADING:
             # Send progress to arr
             progress = info['progress']
