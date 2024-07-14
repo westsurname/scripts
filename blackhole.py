@@ -7,11 +7,11 @@ import re
 import requests
 import asyncio
 from datetime import datetime
-# import urllib
 from shared.discord import discordError, discordUpdate
 from shared.shared import realdebrid, torbox, blackhole, plex, checkRequiredEnvs
-from shared.arr import Arr, Radarr, Sonarr, Lidarr
+from shared.arr import Arr, Radarr, Sonarr
 from shared.debrid import TorrentBase, RealDebridTorrent, RealDebridMagnet, TorboxTorrent, TorboxMagnet
+from RTN import parse
 
 _print = print
 
@@ -22,7 +22,6 @@ requiredEnvs = {
     'Blackhole base watch path': (blackhole['baseWatchPath'],),
     'Blackhole Radarr path': (blackhole['radarrPath'],),
     'Blackhole Sonarr path': (blackhole['sonarrPath'],),
-    'Blackhole Lidarr path': (blackhole['lidarrPath'],),
     'Blackhole fail if not cached': (blackhole['failIfNotCached'],),
     'Blackhole RD mount refresh seconds': (blackhole['rdMountRefreshSeconds'],),
     'Blackhole wait for torrent timeout': (blackhole['waitForTorrentTimeout'],),
@@ -45,29 +44,23 @@ class TorrentFileInfo():
             self.isTorrentOrMagnet = isTorrentOrMagnet
             self.isDotTorrentFile = isDotTorrentFile
 
-    def __init__(self, filename, isRadarr=False, isSonarr=False, isLidarr=False) -> None:
+    def __init__(self, filename, isRadarr) -> None:
         print('filename:', filename)
-        basePath = getPath(isRadarr, isSonarr, isLidarr)
+        baseBath = getPath(isRadarr)
         isDotTorrentFile = filename.casefold().endswith('.torrent')
         isTorrentOrMagnet = isDotTorrentFile or filename.casefold().endswith('.magnet')
         filenameWithoutExt, _ = os.path.splitext(filename)
-        filePath = os.path.join(basePath, filename)
-        filePathProcessing = os.path.join(basePath, 'processing', filename)
-        folderPathCompleted = os.path.join(basePath, 'completed', filenameWithoutExt)
+        filePath = os.path.join(baseBath, filename)
+        filePathProcessing = os.path.join(baseBath, 'processing', filename)
+        folderPathCompleted = os.path.join(baseBath, 'completed', filenameWithoutExt)
         
         self.fileInfo = self.FileInfo(filename, filenameWithoutExt, filePath, filePathProcessing, folderPathCompleted)
         self.torrentInfo = self.TorrentInfo(isTorrentOrMagnet, isDotTorrentFile)
 
-def getPath(isRadarr=False, isSonarr=False, isLidarr=False, create=False):
+def getPath(isRadarr, create=False):
     baseWatchPath = blackhole['baseWatchPath']
     absoluteBaseWatchPath = baseWatchPath if os.path.isabs(baseWatchPath) else os.path.abspath(baseWatchPath)
-
-    if isRadarr:
-        finalPath = os.path.join(absoluteBaseWatchPath, blackhole['radarrPath'])
-    elif isSonarr:
-        finalPath = os.path.join(absoluteBaseWatchPath, blackhole['sonarrPath'])
-    elif isLidarr:
-        finalPath = os.path.join(absoluteBaseWatchPath, blackhole['lidarrPath'])
+    finalPath = os.path.join(absoluteBaseWatchPath, blackhole['radarrPath'] if isRadarr else blackhole['sonarrPath'])
 
     if create:
         for sub_path in ['', 'processing', 'completed']:
@@ -90,26 +83,28 @@ def cleanFileName(name):
 
 refreshingTask = None
 
-async def refreshArr(arr: Arr, count=60):
-    # TODO: Change to refresh until found/imported
-    async def refresh():
-        for _ in range(count):
-            arr.refreshMonitoredDownloads()
-            await asyncio.sleep(1)
+async def refreshArr(arr: Arr, count=3, delay=10):
+    for _ in range(count):
+        arr.refreshMonitoredDownloads()
+        await asyncio.sleep(delay)
 
-    global refreshingTask
-    if refreshingTask and not refreshingTask.done():
-        print("Refresh already in progress, restarting...")
-        refreshingTask.cancel()
-
-    refreshingTask = asyncio.create_task(refresh())
-    try:
-        await refreshingTask
-    except asyncio.CancelledError:
-        pass
+def retryRequest(func, retries=3, delay=2, print=print):
+    for attempt in range(retries):
+        try:
+            time.sleep(delay)  # Add delay before each API call
+            response = func()
+            if response.status_code == 429:  # Too Many Requests
+                print(f"Rate limited, sleeping for {delay} seconds...")
+                time.sleep(delay)
+                continue
+            response.raise_for_status()
+            return response
+        except requests.exceptions.RequestException as e:
+            print(f"Attempt {attempt + 1} failed: {e}")
+            if attempt + 1 == retries:
+                return None
 
 def copyFiles(file: TorrentFileInfo, folderPathMountTorrent, arr: Arr):
-    # Consider removing this and always streaming
     try:
         _print = globals()['print']
 
@@ -130,7 +125,7 @@ def copyFiles(file: TorrentFileInfo, folderPathMountTorrent, arr: Arr):
             time.sleep(1)
             if count == 180:
                 print('copyCount > 180')
-                discordError(f"{file.fileInfo.filenameWithoutExt} copy attempt acount > 180", "Shortcut has not finished importing yet")
+                discordError(f"{file.fileInfo.filenameWithoutExt} copy attempt count > 180", "Shortcut has not finished importing yet")
 
     except:
         e = traceback.format_exc()
@@ -142,14 +137,35 @@ def copyFiles(file: TorrentFileInfo, folderPathMountTorrent, arr: Arr):
 
 import signal
 
-async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) -> bool:
+async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr, message_id, parsed_title, file_info, is_movie) -> bool:
     _print = globals()['print']
 
     def print(*values: object):
         _print(f"[{torrent.__class__.__name__}] [{file.fileInfo.filenameWithoutExt}]", *values)
-        
+
+    color = 3447003 if not is_movie else 16776960  # Blue for show, Yellow for movie
+
+    update_message = lambda status: discordUpdate(
+        title=f"Processing {'Movie' if is_movie else 'Series'}: {parsed_title}",
+        message=f"{file_info}\n**STATUS**:\n📁 Torrent Cached: {status['cached']}\n📥 Added to Debrid: {status['added']}\n🔎 Found on Mount: {status['mounted']}\n🔗 Symlinked: {status['symlinked']}",
+        color=color,
+        message_id=message_id
+    )
+
+    status = {
+        "cached": "⛔",
+        "added": "⛔",
+        "mounted": "⛔",
+        "symlinked": "⛔"
+    }
+    
+    update_message(status)
+
     if not torrent.submitTorrent():
         return False
+
+    status["cached"] = "✅"
+    update_message(status)
 
     count = 0
     while True:
@@ -158,15 +174,16 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) 
         if not info:
             return False
 
-        status = info['status']
+        torrent_status = info['status']
         
-        print('status:', status)
+        print('status:', torrent_status)
 
-        if status == torrent.STATUS_WAITING_FILES_SELECTION:
+        if torrent_status == torrent.STATUS_WAITING_FILES_SELECTION:
             if not await torrent.selectFiles():
                 torrent.delete()
                 return False
-        elif status == torrent.STATUS_DOWNLOADING:
+            await asyncio.sleep(15)  # Add a 15-second wait between select file calls
+        elif torrent_status == torrent.STATUS_DOWNLOADING:
             # Send progress to arr
             progress = info['progress']
             print(f"Progress: {progress:.2f}%")
@@ -175,9 +192,12 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) 
                 torrent.delete()
                 return False
             await asyncio.sleep(1)
-        elif status == torrent.STATUS_ERROR:
+        elif torrent_status == torrent.STATUS_ERROR:
             return False
-        elif status == torrent.STATUS_COMPLETED:
+        elif torrent_status == torrent.STATUS_COMPLETED:
+            status["added"] = "✅"
+            update_message(status)
+            
             existsCount = 0
             print('Waiting for folders to refresh...')
 
@@ -186,6 +206,9 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) 
                 
                 folderPathMountTorrent = await torrent.getTorrentPath()
                 if folderPathMountTorrent:
+                    status["mounted"] = "✅"
+                    update_message(status)
+
                     multiSeasonRegex1 = r'(?<=[\W_][Ss]eason[\W_])[\d][\W_][\d]{1,2}(?=[\W_])'
                     multiSeasonRegex2 = r'(?<=[\W_][Ss])[\d]{2}[\W_][Ss]?[\d]{2}(?=[\W_])'
                     multiSeasonRegexCombined = f'{multiSeasonRegex1}|{multiSeasonRegex2}'
@@ -195,14 +218,6 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) 
                     for root, dirs, files in os.walk(folderPathMountTorrent):
                         relRoot = os.path.relpath(root, folderPathMountTorrent)
                         for filename in files:
-                            # Check if the file is accessible
-                            # if not await is_accessible(os.path.join(root, filename)):
-                            #     print(f"Timeout reached when accessing file: {filename}")
-                            #     discordError(f"Timeout reached when accessing file", filename)
-                                # Uncomment the following line to fail the entire torrent if the timeout on any of its files are reached
-                                # fail(torrent)
-                                # return
-                            
                             if multiSeasonMatch:
                                 seasonMatch = re.search(r'S([\d]{2})E[\d]{2}', filename)
                                 
@@ -216,29 +231,35 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) 
                                     os.makedirs(os.path.join(seasonFolderPathCompleted, relRoot), exist_ok=True)
                                     os.symlink(os.path.join(root, filename), os.path.join(seasonFolderPathCompleted, relRoot, filename))
                                     print('Season Recursive:', f"{os.path.join(seasonFolderPathCompleted, relRoot, filename)} -> {os.path.join(root, filename)}")
-                                    # refreshEndpoint = f"{plex['serverHost']}/library/sections/{plex['serverMovieLibraryId'] if isRadarr else plex['serverTvShowLibraryId']}/refresh?path={urllib.parse.quote_plus(os.path.join(seasonFolderPathCompleted, relRoot))}&X-Plex-Token={plex['serverApiKey']}"
-                                    # cancelRefreshRequest = requests.delete(refreshEndpoint, headers={'Accept': 'application/json'})
-                                    # refreshRequest = requests.get(refreshEndpoint, headers={'Accept': 'application/json'})
-
                                     continue
-
 
                             os.makedirs(os.path.join(file.fileInfo.folderPathCompleted, relRoot), exist_ok=True)
                             os.symlink(os.path.join(root, filename), os.path.join(file.fileInfo.folderPathCompleted, relRoot, filename))
                             print('Recursive:', f"{os.path.join(file.fileInfo.folderPathCompleted, relRoot, filename)} -> {os.path.join(root, filename)}")
-                            # refreshEndpoint = f"{plex['serverHost']}/library/sections/{plex['serverMovieLibraryId'] if isRadarr else plex['serverTvShowLibraryId']}/refresh?path={urllib.parse.quote_plus(os.path.join(file.fileInfo.folderPathCompleted, relRoot))}&X-Plex-Token={plex['serverApiKey']}"
-                            # cancelRefreshRequest = requests.delete(refreshEndpoint, headers={'Accept': 'application/json'})
-                            # refreshRequest = requests.get(refreshEndpoint, headers={'Accept': 'application/json'})
                     
-                    print('Refreshed')
-                    discordUpdate(f"Sucessfully processed {file.fileInfo.filenameWithoutExt}", f"Now available for immediate consumption! existsCount: {existsCount}")
-                    
-                    # refreshEndpoint = f"{plex['serverHost']}/library/sections/{plex['serverMovieLibraryId'] if isRadarr else plex['serverTvShowLibraryId']}/refresh?X-Plex-Token={plex['serverApiKey']}"
-                    # cancelRefreshRequest = requests.delete(refreshEndpoint, headers={'Accept': 'application/json'})
-                    # refreshRequest = requests.get(refreshEndpoint, headers={'Accept': 'application/json'})
-                    await refreshArr(arr)
+                    status["symlinked"] = "✅"
+                    update_message(status)
 
-                    # await asyncio.get_running_loop().run_in_executor(None, copyFiles, file, folderPathMountTorrent, arr)
+                    print('Refreshed')
+
+                    # Refresh arrs every 10 seconds for the first 30 seconds
+                    await refreshArr(arr, count=5, delay=10)
+
+                    # Check for the existence of the symlink every 5 seconds
+                    symlink_exists = False
+                    check_count = 0
+                    while check_count < 30:
+                        check_count += 1
+                        if os.path.exists(os.path.join(file.fileInfo.folderPathCompleted, relRoot, filename)):
+                            symlink_exists = True
+                            break
+                        await asyncio.sleep(5)
+
+                    if symlink_exists:
+                        discordUpdate(f"Successfully processed", f"{file.fileInfo.filenameWithoutExt}")
+                    else:
+                        discordError("Symlink check failed", f"{file.fileInfo.filenameWithoutExt}")
+
                     return True
                 
                 if existsCount >= blackhole['rdMountRefreshSeconds'] + 1:
@@ -255,7 +276,7 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) 
 
             return False
 
-async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr=False, isSonarr=False, isLidarr=False):
+async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
     try:
         _print = globals()['print']
 
@@ -287,30 +308,58 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr=False, isSonarr=
         with open(file.fileInfo.filePathProcessing, 'rb' if file.torrentInfo.isDotTorrentFile else 'r') as f:
             fileData = f.read()
             f.seek(0)
+
+            # Parse torrent name using RTN
+            parsed_data = parse(file.fileInfo.filename)
+            parsed_title = parsed_data.parsed_title or file.fileInfo.filenameWithoutExt
+            print(f"Parsed title: {parsed_title}")
             
+            is_movie = parsed_data.type == "movie"
+            color = 16776960 if is_movie else 3447003
+
+            # Construct file info message
+            file_info = f"**Torrent Name:** {file.fileInfo.filename}\n"
+            file_info += f"**File Type:** {'Movie' if is_movie else 'Series'}\n"
+            if parsed_data.year != 0:
+                file_info += f"**Year:** {parsed_data.year}\n"
+            file_info += f"**Resolution:** {'/'.join(parsed_data.resolution)}\n"
+            file_info += f"**Codec:** {'/'.join(parsed_data.codec)}\n"
+            if not is_movie:
+                file_info += f"**Season:** {', '.join(map(str, parsed_data.season))}\n"
+                if parsed_data.episode:
+                    file_info += f"**Episode:** {', '.join(map(str, parsed_data.episode))}\n"
+
             torrentConstructors = []
             if realdebrid['enabled']:
                 torrentConstructors.append(RealDebridTorrent if file.torrentInfo.isDotTorrentFile else RealDebridMagnet)
             if torbox['enabled']:
                 torrentConstructors.append(TorboxTorrent if file.torrentInfo.isDotTorrentFile else TorboxMagnet)
 
-            onlyLargestFile = isRadarr or isLidarr or bool(re.search(r'S[\d]{2}E[\d]{2}', file.fileInfo.filename))
+            onlyLargestFile = isRadarr or bool(re.search(r'S[\d]{2}E[\d]{2}', file.fileInfo.filename))
+
+            # Send initial notification
+            message_id = discordUpdate(
+                title=f"Processing Torrent: {parsed_title}",
+                message=f"{file_info}\n**STATUS**:\n📁 Torrent Cached: ⛔\n📥 Added to Debrid: ⛔\n🔎 Found on Mount: ⛔\n🔗 Symlinked: ⛔",
+                color=color
+            )
+
             if not blackhole['failIfNotCached']:
                 torrents = [constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile) for constructor in torrentConstructors]
-                results = await asyncio.gather(*(processTorrent(torrent, file, arr) for torrent in torrents))
+                results = await asyncio.gather(*(processTorrent(torrent, file, arr, message_id, parsed_title, file_info, is_movie) for torrent in torrents))
                 
                 if not any(results):
                     for torrent in torrents:
-                        fail(torrent, arr)
+                        fail(torrent, arr, message_id, file_info, parsed_title, color)
             else:
                 for i, constructor in enumerate(torrentConstructors):
                     isLast = (i == len(torrentConstructors) - 1)
                     torrent = constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile)
 
-                    if await processTorrent(torrent, file, arr):
+                    if await processTorrent(torrent, file, arr, message_id, parsed_title, file_info, is_movie):
                         break
                     elif isLast:
-                        fail(torrent, arr)
+                        fail(torrent, arr, message_id, file_info, parsed_title, color)
 
             os.remove(file.fileInfo.filePathProcessing)
     except:
@@ -319,9 +368,9 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr=False, isSonarr=
         print(f"Error processing {file.fileInfo.filenameWithoutExt}")
         print(e)
 
-        discordError(f"Error processing {file.fileInfo.filenameWithoutExt}", e)
+        discordError(f"Error processing {file.fileInfo.filenameWithoutExt}", f"Error:\n```{e}```")
 
-def fail(torrent: TorrentBase, arr: Arr):
+def fail(torrent: TorrentBase, arr: Arr, message_id, file_info, parsed_title, color):
     _print = globals()['print']
 
     def print(*values: object):
@@ -338,33 +387,39 @@ def fail(torrent: TorrentBase, arr: Arr):
         print(message)
         discordError(message, torrent.file.fileInfo.filenameWithoutExt)
     for item in items:
-        # TODO: See if we can fail without blacklisting as cached items constantly changes
         arr.failHistoryItem(item['id'])
     print(f"Failed")
     
-def getFiles(isRadarr=False, isSonarr=False, isLidarr=False):
+    # Update Discord message with "⛔ Failed"
+    discordUpdate(
+        title=f"Processing {'Movie' if torrent.file.fileInfo.filenameWithoutExt.endswith('movie') else 'Series'}: {parsed_title}",
+        message=f"{file_info}\n**STATUS**:\n⛔ Failed",
+        color=color,
+        message_id=message_id
+    )
+    
+def getFiles(isRadarr):
     print('getFiles')
-    files = (TorrentFileInfo(filename, isRadarr, isSonarr, isLidarr) for filename in os.listdir(getPath(isRadarr, isSonarr, isLidarr)) if filename not in ['processing', 'completed'])
+    files = (TorrentFileInfo(filename, isRadarr) for filename in os.listdir(getPath(isRadarr)) if filename not in ['processing', 'completed'])
     return [file for file in files if file.torrentInfo.isTorrentOrMagnet]
 
-async def on_created(type):
+async def on_created(isRadarr):
     print("Enter 'on_created'")
     try:
-        if type == 'radarr':
+        print('radarr/sonarr:', 'radarr' if isRadarr else 'sonarr')
+
+        if isRadarr:
             arr = Radarr()
-        elif type == 'sonarr':
+        else:
             arr = Sonarr()
-        elif type == 'lidarr':
-            arr = Lidarr()
 
         futures: list[asyncio.Future] = []
         firstGo = True
         
-        # Consider switching to a queue
         while firstGo or not all(future.done() for future in futures):
-            files = getFiles(type == 'radarr', type == 'sonarr', type == 'lidarr')
+            files = getFiles(isRadarr)
             if files:
-                futures.append(asyncio.gather(*(processFile(file, arr, type == 'radarr', type == 'sonarr', type == 'lidarr') for file in files)))
+                futures.append(asyncio.gather(*(processFile(file, arr, isRadarr) for file in files)))
             elif firstGo:
                 print('No torrent files found')
             firstGo = False
@@ -377,12 +432,8 @@ async def on_created(type):
         print(f"Error processing")
         print(e)
 
-        discordError(f"Error processing", e)
+        discordError(f"Error processing", f"Error:\n```{e}```")
     print("Exit 'on_created'")
 
 if __name__ == "__main__":
-    type = sys.argv[1].lower()
-    if type not in ['radarr', 'sonarr', 'lidarr']:
-        print("Invalid argument. Expected 'radarr', 'sonarr', or 'lidarr'.")
-        sys.exit(1)
-    asyncio.run(on_created(type))
+    asyncio.run(on_created(isRadarr=sys.argv[1] == 'radarr'))
