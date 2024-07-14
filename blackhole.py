@@ -243,13 +243,14 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr, 
                     print('Refreshed')
 
                     # Refresh arrs every 10 seconds for the first 30 seconds
-                    await refreshArr(arr, count=5, delay=10)
+                    await refreshArr(arr, count=3, delay=10)
 
                     # Check for the existence of the symlink every 5 seconds
                     symlink_exists = False
                     check_count = 0
-                    while check_count < 30:
+                    while check_count < 6:
                         check_count += 1
+                        arr.refreshMonitoredDownloads()
                         if os.path.exists(os.path.join(file.fileInfo.folderPathCompleted, relRoot, filename)):
                             symlink_exists = True
                             break
@@ -350,7 +351,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                 
                 if not any(results):
                     for torrent in torrents:
-                        fail(torrent, arr, message_id, file_info, parsed_title, color)
+                        fail(torrent, arr, message_id, file_info, parsed_title, is_movie, color)
             else:
                 for i, constructor in enumerate(torrentConstructors):
                     isLast = (i == len(torrentConstructors) - 1)
@@ -359,7 +360,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                     if await processTorrent(torrent, file, arr, message_id, parsed_title, file_info, is_movie):
                         break
                     elif isLast:
-                        fail(torrent, arr, message_id, file_info, parsed_title, color)
+                        fail(torrent, arr, message_id, file_info, parsed_title, is_movie, color)
 
             os.remove(file.fileInfo.filePathProcessing)
     except:
@@ -370,7 +371,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
 
         discordError(f"Error processing {file.fileInfo.filenameWithoutExt}", f"Error:\n```{e}```")
 
-def fail(torrent: TorrentBase, arr: Arr, message_id, file_info, parsed_title, color):
+def fail(torrent: TorrentBase, arr: Arr, message_id, file_info, parsed_title, is_movie, color):
     _print = globals()['print']
 
     def print(*values: object):
@@ -389,15 +390,14 @@ def fail(torrent: TorrentBase, arr: Arr, message_id, file_info, parsed_title, co
     for item in items:
         arr.failHistoryItem(item['id'])
     print(f"Failed")
-    
-    # Update Discord message with "⛔ Failed"
+
     discordUpdate(
-        title=f"Processing {'Movie' if torrent.file.fileInfo.filenameWithoutExt.endswith('movie') else 'Series'}: {parsed_title}",
+        title=f"Processing {'Movie' if is_movie else 'Series'}: {parsed_title}",
         message=f"{file_info}\n**STATUS**:\n⛔ Failed",
         color=color,
         message_id=message_id
     )
-    
+
 def getFiles(isRadarr):
     print('getFiles')
     files = (TorrentFileInfo(filename, isRadarr) for filename in os.listdir(getPath(isRadarr)) if filename not in ['processing', 'completed'])
