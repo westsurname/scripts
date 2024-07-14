@@ -7,7 +7,6 @@ import requests
 from abc import ABC, abstractmethod
 from urllib.parse import urljoin
 from datetime import datetime
-from shared.discord import discordUpdate
 from shared.requests import retryRequest
 from shared.shared import realdebrid, torbox, mediaExtensions, checkRequiredEnvs
 
@@ -26,7 +25,7 @@ def validateRealdebridHost():
     
 def validateRealdebridApiKey():
     url = urljoin(realdebrid['host'], "user")
-    headers = {'Authorization': f'Bearer {realdebrid["apiKey"]}'}
+    headers = {'Authorization': f'Bearer ' + realdebrid['apiKey']}
     try:
         response = requests.get(url, headers=headers)
         
@@ -56,7 +55,7 @@ def validateTorboxHost():
     
 def validateTorboxApiKey():
     url = urljoin(torbox['host'], "user/me")
-    headers = {'Authorization': f'Bearer {torbox["apiKey"]}'}
+    headers = {'Authorization': f'Bearer ' + torbox['apiKey']}
     try:
         response = requests.get(url, headers=headers)
         
@@ -161,8 +160,12 @@ class TorrentBase(ABC):
 class RealDebrid(TorrentBase):
     def __init__(self, f, fileData, file, failIfNotCached, onlyLargestFile) -> None:
         super().__init__(f, fileData, file, failIfNotCached, onlyLargestFile)
-        self.headers = {'Authorization': f'Bearer {realdebrid["apiKey"]}'}
+        self.headers = {'Authorization': f'Bearer ' + realdebrid['apiKey']}
         self.mountTorrentsPath = realdebrid["mountTorrentsPath"]
+
+    @property
+    def instantAvailability(self):
+        return self._instantAvailability
 
     def submitTorrent(self):
         if self.failIfNotCached:
@@ -254,12 +257,8 @@ class RealDebrid(TorrentBase):
                 extraFilesGroup = next((fileGroup for fileGroup in self._instantAvailability if largestMediaFileId in fileGroup.keys()), None)
                 if self.onlyLargestFile and extraFilesGroup:
                     self.print('extra files required for cache:', extraFilesGroup)
-                    discordUpdate('Extra files required for cache:', extraFilesGroup)
                 return False
             
-        if self.onlyLargestFile and len(mediaFiles) > 1:
-            discordUpdate('largest file:', largestMediaFile['path'])
-                
         files = {'files': [largestMediaFileId] if self.onlyLargestFile else ','.join(mediaFileIds)}
         selectFilesRequest = retryRequest(
             lambda: requests.post(urljoin(realdebrid['host'], f"torrents/selectFiles/{self.id}"), headers=self.headers, data=files),
@@ -338,7 +337,7 @@ class RealDebrid(TorrentBase):
 class Torbox(TorrentBase):
     def __init__(self, f, fileData, file, failIfNotCached, onlyLargestFile) -> None:
         super().__init__(f, fileData, file, failIfNotCached, onlyLargestFile)
-        self.headers = {'Authorization': f'Bearer {torbox["apiKey"]}'}
+        self.headers = {'Authorization': f'Bearer ' + torbox['apiKey']}
         self.mountTorrentsPath = torbox["mountTorrentsPath"]
         self.submittedTime = None
         self.lastInactiveCheck = None
@@ -350,6 +349,10 @@ class Torbox(TorrentBase):
         if userInfoRequest is not None:
             userInfo = userInfoRequest.json()
             self.authId = userInfo['data']['auth_id']
+
+    @property
+    def instantAvailability(self):
+        return self._instantAvailability
 
     def submitTorrent(self):
         if self.failIfNotCached:
@@ -381,7 +384,12 @@ class Torbox(TorrentBase):
 
             instantAvailabilities = instantAvailabilityRequest.json()
             self.print('instantAvailabilities:', instantAvailabilities)
-            self._instantAvailability = instantAvailabilities['data'] if 'data' in instantAvailabilities and 'data' in instantAvailabilities['data'] and instantAvailabilities['data'] is not False else None
+            
+            # Check if 'data' exists and is not None or False
+            if instantAvailabilities and 'data' in instantAvailabilities and instantAvailabilities['data']:
+                self._instantAvailability = instantAvailabilities['data']
+            else:
+                self._instantAvailability = None
         
         return self._instantAvailability
 
@@ -518,4 +526,4 @@ class TorboxTorrent(Torbox, Torrent):
     pass
 
 class TorboxMagnet(Torbox, Magnet):
-    pass   
+    pass
