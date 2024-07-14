@@ -2,7 +2,7 @@ x-blackhole: &blackhole
   build: 
     context: .
     dockerfile: Dockerfile.blackhole
-  image: ghcr.io/westsurname/scripts/blackhole:latest
+#  image: ghcr.io/westsurname/scripts/blackhole:latest
   pull_policy: always
   user: "${PUID:-}${PGID:+:${PGID}}"
   env_file:
@@ -13,7 +13,7 @@ x-repair: &repair
   build: 
     context: .
     dockerfile: Dockerfile.scripts
-  image: ghcr.io/westsurname/scripts/scripts:latest
+#  image: ghcr.io/westsurname/scripts/scripts:latest
   pull_policy: always
   command: python repair.py --no-confirm
   env_file:
@@ -81,19 +81,6 @@ services:
       - ${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH} mux:/${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}
     profiles: [blackhole_mux, blackhole_all, all]
 
-    blackhole_music:
-    <<: *blackhole
-    container_name: blackhole_music_service
-    environment:
-      - LIDARR_HOST=${LIDARR_HOST}
-      - LIDARR_API_KEY=${LIDARR_API_KEY}
-      - BLACKHOLE_BASE_WATCH_PATH=/${BLACKHOLE_BASE_WATCH_PATH}
-    volumes:
-      - ${REALDEBRID_MOUNT_TORRENTS_PATH:-${BLACKHOLE_RD_MOUNT_TORRENTS_PATH:-/dev/null}}:${REALDEBRID_MOUNT_TORRENTS_PATH:-${BLACKHOLE_RD_MOUNT_TORRENTS_PATH:-/dev/null}}
-      - ${TORBOX_MOUNT_TORRENTS_PATH:-/dev/null}:${TORBOX_MOUNT_TORRENTS_PATH:-/dev/null}
-      - ${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_LIDARR_PATH}:/${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_LIDARR_PATH}
-    profiles: [blackhole_music, blackhole_all, all]
-
   repair_service:
     <<: *repair
     container_name: repair_service
@@ -148,18 +135,6 @@ services:
       - ${SONARR_ROOT_FOLDER_MUX}:${SONARR_ROOT_FOLDER}
       - ${RADARR_ROOT_FOLDER_MUX}:${RADARR_ROOT_FOLDER}
     profiles: [repair_mux, repair_all, all]
-
-   repair_music:
-    <<: *repair
-    container_name: repair_music_service
-    environment:
-      - LIDARR_HOST=${LIDARR_HOST_MUX}
-      - LIDARR_API_KEY=${LIDARR_API_KEY_MUX}
-    volumes:
-      - ${REALDEBRID_MOUNT_TORRENTS_PATH:-${BLACKHOLE_RD_MOUNT_TORRENTS_PATH:-/dev/null}}:${REALDEBRID_MOUNT_TORRENTS_PATH:-${BLACKHOLE_RD_MOUNT_TORRENTS_PATH:-/dev/null}}
-      - ${TORBOX_MOUNT_TORRENTS_PATH:-/dev/null}:${TORBOX_MOUNT_TORRENTS_PATH:-/dev/null}
-      - ${LIDARR_ROOT_FOLDER}:${LIDARR_ROOT_FOLDER}
-    profiles: [repair_music, repair_all, all]
 
   watchlist:
     build: 
