@@ -381,7 +381,12 @@ class Torbox(TorrentBase):
 
             instantAvailabilities = instantAvailabilityRequest.json()
             self.print('instantAvailabilities:', instantAvailabilities)
-            self._instantAvailability = instantAvailabilities['data']['data'] if 'data' in instantAvailabilities and 'data' in instantAvailabilities['data'] and instantAvailabilities['data']['data'] is not False else None
+            
+            # Check if 'data' exists and is not None or False
+            if instantAvailabilities and 'data' in instantAvailabilities and instantAvailabilities['data']:
+                self._instantAvailability = instantAvailabilities['data']
+            else:
+                self._instantAvailability = None
         
         return self._instantAvailability
 
@@ -518,4 +523,4 @@ class TorboxTorrent(Torbox, Torrent):
     pass
 
 class TorboxMagnet(Torbox, Magnet):
-    pass   
+    pass
