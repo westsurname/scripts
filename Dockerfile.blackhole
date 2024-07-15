@@ -1,4 +1,4 @@
-FROM python:3.8-slim
+FROM python:3.11-slim
 
 # Metadata labels
 LABEL org.opencontainers.image.source="https://github.com/westsurname/scripts"

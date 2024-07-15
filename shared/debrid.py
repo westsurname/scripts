@@ -7,7 +7,6 @@ import requests
 from abc import ABC, abstractmethod
 from urllib.parse import urljoin
 from datetime import datetime
-from shared.discord import discordUpdate
 from shared.requests import retryRequest
 from shared.shared import realdebrid, torbox, mediaExtensions, checkRequiredEnvs
 
@@ -26,7 +25,7 @@ def validateRealdebridHost():
     
 def validateRealdebridApiKey():
     url = urljoin(realdebrid['host'], "user")
-    headers = {'Authorization': f'Bearer {realdebrid["apiKey"]}'}
+    headers = {'Authorization': f'Bearer ' + realdebrid['apiKey']}
     try:
         response = requests.get(url, headers=headers)
         
@@ -56,7 +55,7 @@ def validateTorboxHost():
     
 def validateTorboxApiKey():
     url = urljoin(torbox['host'], "user/me")
-    headers = {'Authorization': f'Bearer {torbox["apiKey"]}'}
+    headers = {'Authorization': f'Bearer ' + torbox['apiKey']}
     try:
         response = requests.get(url, headers=headers)
         
@@ -161,8 +160,12 @@ class TorrentBase(ABC):
 class RealDebrid(TorrentBase):
     def __init__(self, f, fileData, file, failIfNotCached, onlyLargestFile) -> None:
         super().__init__(f, fileData, file, failIfNotCached, onlyLargestFile)
-        self.headers = {'Authorization': f'Bearer {realdebrid["apiKey"]}'}
+        self.headers = {'Authorization': f'Bearer ' + realdebrid['apiKey']}
         self.mountTorrentsPath = realdebrid["mountTorrentsPath"]
+
+    @property
+    def instantAvailability(self):
+        return self._instantAvailability
 
     def submitTorrent(self):
         if self.failIfNotCached:
@@ -191,13 +194,17 @@ class RealDebrid(TorrentBase):
 
             instantAvailabilities = instantAvailabilityRequest.json()
             self.print('instantAvailabilities:', instantAvailabilities)
-            instantAvailabilityHosters = next(iter(instantAvailabilities.values()))
+
+            if not instantAvailabilities:
+                return None
+
+            instantAvailabilityHosters = instantAvailabilities[0] if isinstance(instantAvailabilities, list) else next(iter(instantAvailabilities.values()))
             if not instantAvailabilityHosters: return
 
-            self._instantAvailability = next(iter(instantAvailabilityHosters.values()))
+            self._instantAvailability = next(iter(instantAvailabilityHosters.values())) if isinstance(instantAvailabilityHosters, dict) else instantAvailabilityHosters
 
         return self._instantAvailability
-    
+
     def _getAvailableHost(self):
         availableHostsRequest = retryRequest(
             lambda: requests.get(urljoin(realdebrid['host'], "torrents/availableHosts"), headers=self.headers),
@@ -208,7 +215,7 @@ class RealDebrid(TorrentBase):
 
         availableHosts = availableHostsRequest.json()
         return availableHosts[0]['host']
-    
+
     async def getInfo(self, refresh=False):
         self._enforceId()
 
@@ -235,14 +242,14 @@ class RealDebrid(TorrentBase):
 
         self.print('files:', info['files'])
         mediaFiles = [file for file in info['files'] if os.path.splitext(file['path'])[1].lower() in mediaExtensions]
-        
+
         if not mediaFiles:
             self.print('no media files found')
             return False
 
         mediaFileIds = {str(file['id']) for file in mediaFiles}
         self.print('required fileIds:', mediaFileIds)
-        
+
         largestMediaFile = max(mediaFiles, key=lambda file: file['bytes'])
         largestMediaFileId = str(largestMediaFile['id'])
         self.print('only largest file:', self.onlyLargestFile)
@@ -254,12 +261,8 @@ class RealDebrid(TorrentBase):
                 extraFilesGroup = next((fileGroup for fileGroup in self._instantAvailability if largestMediaFileId in fileGroup.keys()), None)
                 if self.onlyLargestFile and extraFilesGroup:
                     self.print('extra files required for cache:', extraFilesGroup)
-                    discordUpdate('Extra files required for cache:', extraFilesGroup)
                 return False
-            
-        if self.onlyLargestFile and len(mediaFiles) > 1:
-            discordUpdate('largest file:', largestMediaFile['path'])
-                
+
         files = {'files': [largestMediaFileId] if self.onlyLargestFile else ','.join(mediaFileIds)}
         selectFilesRequest = retryRequest(
             lambda: requests.post(urljoin(realdebrid['host'], f"torrents/selectFiles/{self.id}"), headers=self.headers, data=files),
@@ -267,7 +270,7 @@ class RealDebrid(TorrentBase):
         )
         if selectFilesRequest is None:
             return False
-        
+
         return True
 
     def delete(self):
@@ -278,7 +281,6 @@ class RealDebrid(TorrentBase):
             print=self.print
         )
         return not not deleteRequest
-
 
     async def getTorrentPath(self):
         filename = (await self.getInfo())['filename']
@@ -323,7 +325,7 @@ class RealDebrid(TorrentBase):
 
     def _addMagnetFile(self):
         return self._addFile(requests.post, "torrents/addMagnet", {'magnet': self.fileData})
-    
+
     def _normalize_status(self, status):
         if status in ['waiting_files_selection']:
             return self.STATUS_WAITING_FILES_SELECTION
@@ -338,7 +340,7 @@ class RealDebrid(TorrentBase):
 class Torbox(TorrentBase):
     def __init__(self, f, fileData, file, failIfNotCached, onlyLargestFile) -> None:
         super().__init__(f, fileData, file, failIfNotCached, onlyLargestFile)
-        self.headers = {'Authorization': f'Bearer {torbox["apiKey"]}'}
+        self.headers = {'Authorization': f'Bearer ' + torbox['apiKey']}
         self.mountTorrentsPath = torbox["mountTorrentsPath"]
         self.submittedTime = None
         self.lastInactiveCheck = None
@@ -350,6 +352,10 @@ class Torbox(TorrentBase):
         if userInfoRequest is not None:
             userInfo = userInfoRequest.json()
             self.authId = userInfo['data']['auth_id']
+
+    @property
+    def instantAvailability(self):
+        return self._instantAvailability
 
     def submitTorrent(self):
         if self.failIfNotCached:
@@ -417,7 +423,7 @@ class Torbox(TorrentBase):
                 torrents = infoRequest.json()['data']
                 
                 for torrent in torrents:
-                    if torrent['id'] == self.id:
+                    if (torrent['id'] == self.id) and ('download_finished' in torrent):
                         torrent['status'] = self._normalize_status(torrent['download_state'], torrent['download_finished'])
                         self._info = torrent
                         return self._info
