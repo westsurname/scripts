@@ -194,13 +194,17 @@ class RealDebrid(TorrentBase):
 
             instantAvailabilities = instantAvailabilityRequest.json()
             self.print('instantAvailabilities:', instantAvailabilities)
-            instantAvailabilityHosters = next(iter(instantAvailabilities.values()))
+
+            if not instantAvailabilities:
+                return None
+
+            instantAvailabilityHosters = instantAvailabilities[0] if isinstance(instantAvailabilities, list) else next(iter(instantAvailabilities.values()))
             if not instantAvailabilityHosters: return
 
-            self._instantAvailability = next(iter(instantAvailabilityHosters.values()))
+            self._instantAvailability = next(iter(instantAvailabilityHosters.values())) if isinstance(instantAvailabilityHosters, dict) else instantAvailabilityHosters
 
         return self._instantAvailability
-    
+
     def _getAvailableHost(self):
         availableHostsRequest = retryRequest(
             lambda: requests.get(urljoin(realdebrid['host'], "torrents/availableHosts"), headers=self.headers),
@@ -211,7 +215,7 @@ class RealDebrid(TorrentBase):
 
         availableHosts = availableHostsRequest.json()
         return availableHosts[0]['host']
-    
+
     async def getInfo(self, refresh=False):
         self._enforceId()
 
@@ -238,14 +242,14 @@ class RealDebrid(TorrentBase):
 
         self.print('files:', info['files'])
         mediaFiles = [file for file in info['files'] if os.path.splitext(file['path'])[1].lower() in mediaExtensions]
-        
+
         if not mediaFiles:
             self.print('no media files found')
             return False
 
         mediaFileIds = {str(file['id']) for file in mediaFiles}
         self.print('required fileIds:', mediaFileIds)
-        
+
         largestMediaFile = max(mediaFiles, key=lambda file: file['bytes'])
         largestMediaFileId = str(largestMediaFile['id'])
         self.print('only largest file:', self.onlyLargestFile)
@@ -258,7 +262,7 @@ class RealDebrid(TorrentBase):
                 if self.onlyLargestFile and extraFilesGroup:
                     self.print('extra files required for cache:', extraFilesGroup)
                 return False
-            
+
         files = {'files': [largestMediaFileId] if self.onlyLargestFile else ','.join(mediaFileIds)}
         selectFilesRequest = retryRequest(
             lambda: requests.post(urljoin(realdebrid['host'], f"torrents/selectFiles/{self.id}"), headers=self.headers, data=files),
@@ -266,7 +270,7 @@ class RealDebrid(TorrentBase):
         )
         if selectFilesRequest is None:
             return False
-        
+
         return True
 
     def delete(self):
@@ -277,7 +281,6 @@ class RealDebrid(TorrentBase):
             print=self.print
         )
         return not not deleteRequest
-
 
     async def getTorrentPath(self):
         filename = (await self.getInfo())['filename']
@@ -322,7 +325,7 @@ class RealDebrid(TorrentBase):
 
     def _addMagnetFile(self):
         return self._addFile(requests.post, "torrents/addMagnet", {'magnet': self.fileData})
-    
+
     def _normalize_status(self, status):
         if status in ['waiting_files_selection']:
             return self.STATUS_WAITING_FILES_SELECTION
@@ -420,7 +423,7 @@ class Torbox(TorrentBase):
                 torrents = infoRequest.json()['data']
                 
                 for torrent in torrents:
-                    if torrent['id'] == self.id:
+                    if (torrent['id'] == self.id) and ('download_finished' in torrent):
                         torrent['status'] = self._normalize_status(torrent['download_state'], torrent['download_finished'])
                         self._info = torrent
                         return self._info
