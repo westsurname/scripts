@@ -260,7 +260,7 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr, 
                             content=discord_user_tag if tag_on_success else None,
                             title=f"Successfully Processed: {parsed_title}",
                             message=f"**Debrid Provider:** {debrid_provider}\n{file_info}\n**STATUS:**\n📁 Torrent Cached: {status['cached']}\n📥 Added to Debrid: {status['added']}\n🔎 Found on Mount: {status['mounted']}\n🔗 Symlinked: {status['symlinked']}\n✨ Successfully Processed: ✅",
-                            color=65280,  # Green for success
+                            color=822597,  # Green for success
                             message_id=message_id,
                             timestamp=timestamp
                         )
@@ -269,7 +269,7 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr, 
                             content=discord_user_tag if tag_on_success else None,
                             title=f"Successfully Processed: {parsed_title}",
                             message=f"**Debrid Provider:** {debrid_provider}\n{file_info}\n**STATUS:**\n📁 Torrent Cached: {status['cached']}\n📥 Added to Debrid: {status['added']}\n🔎 Found on Mount: {status['mounted']}\n🔗 Symlinked: {status['symlinked']}\n✨ Successfully Processed: ✅",
-                            color=65280,  # Green for success
+                            color=822597,  # Green for success
                             message_id=message_id,
                             timestamp=timestamp
                         )
@@ -415,7 +415,7 @@ def fail(torrent: TorrentBase, arr: Arr, message_id, file_info, parsed_title, is
         content=discord_user_tag if tag_on_failure else None,
         title=f"Failed To Process: {parsed_title}",
         message=f"**Debrid Provider:** {debrid_provider}\n{file_info}\n**STATUS:**\n⛔ Failed",
-        color=16711680,  # Red for failure
+        color=9899036,  # Red for failure
         message_id=message_id,
         timestamp=timestamp
     )
