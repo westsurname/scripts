@@ -137,7 +137,7 @@ def copyFiles(file: TorrentFileInfo, folderPathMountTorrent, arr: Arr):
 
 import signal
 
-async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr, message_id, parsed_title, file_info, is_movie) -> bool:
+async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr, message_id, parsed_title, file_info, is_movie, debrid_provider, discord_user_tag, tag_on_success) -> bool:
     _print = globals()['print']
 
     def print(*values: object):
@@ -147,9 +147,9 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr, 
 
     update_message = lambda status: discordUpdate(
         title=f"Processing {'Movie' if is_movie else 'Series'}: {parsed_title}",
-        message=f"{file_info}\n**STATUS**:\n📁 Torrent Cached: {status['cached']}\n📥 Added to Debrid: {status['added']}\n🔎 Found on Mount: {status['mounted']}\n🔗 Symlinked: {status['symlinked']}",
+        message=f"**Debrid Provider:** {debrid_provider}\n{file_info}\n**STATUS:**\n📁 Torrent Cached: {status['cached']}\n📥 Added to Debrid: {status['added']}\n🔎 Found on Mount: {status['mounted']}\n🔗 Symlinked: {status['symlinked']}",
         color=color,
-        message_id=message_id
+        message_id=message_id,
     )
 
     status = {
@@ -246,20 +246,33 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr, 
                     await refreshArr(arr, count=3, delay=10)
 
                     # Check for the existence of the symlink every 5 seconds
-                    symlink_exists = False
                     check_count = 0
                     while check_count < 6:
                         check_count += 1
                         arr.refreshMonitoredDownloads()
-                        if os.path.exists(os.path.join(file.fileInfo.folderPathCompleted, relRoot, filename)):
-                            symlink_exists = True
+                        if not os.path.exists(os.path.join(file.fileInfo.folderPathCompleted, relRoot, filename)):
                             break
                         await asyncio.sleep(5)
 
-                    if symlink_exists:
-                        discordUpdate(f"Successfully processed", f"{file.fileInfo.filenameWithoutExt}")
+                    timestamp = datetime.utcnow().isoformat() + "Z"
+                    if check_count < 6:
+                        discordUpdate(
+                            content=discord_user_tag if tag_on_success else None,
+                            title=f"Successfully Processed: {parsed_title}",
+                            message=f"**Debrid Provider:** {debrid_provider}\n{file_info}\n**STATUS:**\n📁 Torrent Cached: {status['cached']}\n📥 Added to Debrid: {status['added']}\n🔎 Found on Mount: {status['mounted']}\n🔗 Symlinked: {status['symlinked']}\n✨ Successfully Processed: ✅",
+                            color=65280,  # Green for success
+                            message_id=message_id,
+                            timestamp=timestamp
+                        )
                     else:
-                        discordError("Symlink check failed", f"{file.fileInfo.filenameWithoutExt}")
+                        discordUpdate(
+                            content=discord_user_tag if tag_on_success else None,
+                            title=f"Successfully Processed: {parsed_title}",
+                            message=f"**Debrid Provider:** {debrid_provider}\n{file_info}\n**STATUS:**\n📁 Torrent Cached: {status['cached']}\n📥 Added to Debrid: {status['added']}\n🔎 Found on Mount: {status['mounted']}\n🔗 Symlinked: {status['symlinked']}\n✨ Successfully Processed: ✅",
+                            color=65280,  # Green for success
+                            message_id=message_id,
+                            timestamp=timestamp
+                        )
 
                     return True
                 
@@ -333,34 +346,40 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
             torrentConstructors = []
             if realdebrid['enabled']:
                 torrentConstructors.append(RealDebridTorrent if file.torrentInfo.isDotTorrentFile else RealDebridMagnet)
+                debrid_provider = "Real-Debrid"
             if torbox['enabled']:
                 torrentConstructors.append(TorboxTorrent if file.torrentInfo.isDotTorrentFile else TorboxMagnet)
+                debrid_provider = "Torbox"
 
             onlyLargestFile = isRadarr or bool(re.search(r'S[\d]{2}E[\d]{2}', file.fileInfo.filename))
 
             # Send initial notification
+            discord_user = os.getenv('DISCORD_USER_TAG')
+            discord_user_tag = f"<@{discord_user}>"
+            tag_on_success = os.getenv('TAG_ON_SUCCESS', 'true').lower() == 'true'
+            tag_on_failure = os.getenv('TAG_ON_FAILURE', 'true').lower() == 'true'
             message_id = discordUpdate(
                 title=f"Processing Torrent: {parsed_title}",
-                message=f"{file_info}\n**STATUS**:\n📁 Torrent Cached: ⛔\n📥 Added to Debrid: ⛔\n🔎 Found on Mount: ⛔\n🔗 Symlinked: ⛔",
-                color=color
+                message=f"**Debrid Provider:** {debrid_provider}\n{file_info}\n**STATUS:**\n📁 Torrent Cached: ⛔\n📥 Added to Debrid: ⛔\n🔎 Found on Mount: ⛔\n🔗 Symlinked: ⛔",
+                color=color,
             )
 
             if not blackhole['failIfNotCached']:
                 torrents = [constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile) for constructor in torrentConstructors]
-                results = await asyncio.gather(*(processTorrent(torrent, file, arr, message_id, parsed_title, file_info, is_movie) for torrent in torrents))
+                results = await asyncio.gather(*(processTorrent(torrent, file, arr, message_id, parsed_title, file_info, is_movie, debrid_provider, discord_user_tag, tag_on_success) for torrent in torrents))
                 
                 if not any(results):
                     for torrent in torrents:
-                        fail(torrent, arr, message_id, file_info, parsed_title, is_movie, color)
+                        fail(torrent, arr, message_id, file_info, parsed_title, is_movie, color, discord_user_tag, debrid_provider, tag_on_failure)
             else:
                 for i, constructor in enumerate(torrentConstructors):
                     isLast = (i == len(torrentConstructors) - 1)
                     torrent = constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile)
 
-                    if await processTorrent(torrent, file, arr, message_id, parsed_title, file_info, is_movie):
+                    if await processTorrent(torrent, file, arr, message_id, parsed_title, file_info, is_movie, debrid_provider, discord_user_tag, tag_on_success):
                         break
                     elif isLast:
-                        fail(torrent, arr, message_id, file_info, parsed_title, is_movie, color)
+                        fail(torrent, arr, message_id, file_info, parsed_title, is_movie, color, discord_user_tag, debrid_provider, tag_on_failure)
 
             os.remove(file.fileInfo.filePathProcessing)
     except:
@@ -371,7 +390,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
 
         discordError(f"Error processing {file.fileInfo.filenameWithoutExt}", f"Error:\n```{e}```")
 
-def fail(torrent: TorrentBase, arr: Arr, message_id, file_info, parsed_title, is_movie, color):
+def fail(torrent: TorrentBase, arr: Arr, message_id, file_info, parsed_title, is_movie, color, discord_user_tag, debrid_provider, tag_on_failure):
     _print = globals()['print']
 
     def print(*values: object):
@@ -391,11 +410,14 @@ def fail(torrent: TorrentBase, arr: Arr, message_id, file_info, parsed_title, is
         arr.failHistoryItem(item['id'])
     print(f"Failed")
 
+    timestamp = datetime.utcnow().isoformat() + "Z"
     discordUpdate(
-        title=f"Processing {'Movie' if is_movie else 'Series'}: {parsed_title}",
-        message=f"{file_info}\n**STATUS**:\n⛔ Failed",
-        color=color,
-        message_id=message_id
+        content=discord_user_tag if tag_on_failure else None,
+        title=f"Failed To Process: {parsed_title}",
+        message=f"**Debrid Provider:** {debrid_provider}\n{file_info}\n**STATUS:**\n⛔ Failed",
+        color=16711680,  # Red for failure
+        message_id=message_id,
+        timestamp=timestamp
     )
 
 def getFiles(isRadarr):
