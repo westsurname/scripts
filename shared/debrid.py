@@ -2,7 +2,6 @@ import asyncio
 import os
 import re
 import hashlib
-import bencode3
 import requests
 from abc import ABC, abstractmethod
 from urllib.parse import urljoin
@@ -493,6 +492,7 @@ class Torrent(TorrentBase):
     def getHash(self):
 
         if not self._hash:
+            import bencode3
             self._hash = hashlib.sha1(bencode3.bencode(bencode3.bdecode(self.fileData)['info'])).hexdigest()
         
         return self._hash

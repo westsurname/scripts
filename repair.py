@@ -69,11 +69,12 @@ def main():
             for childFile in childFiles:
 
                 fullPath = childFile.path
-                destinationPath = os.readlink(fullPath)
                 realPath = os.path.realpath(fullPath)
                 realPaths.append(realPath)
                 
                 if os.path.islink(fullPath):
+                    destinationPath = os.readlink(fullPath)
+                    
                     if ((realdebrid['enabled'] and destinationPath.startswith(realdebrid['mountTorrentsPath']) and not os.path.exists(destinationPath)) or 
                        (torbox['enabled'] and destinationPath.startswith(torbox['mountTorrentsPath']) and not os.path.exists(realPath))):
                         brokenSymlinks.append(realPath)

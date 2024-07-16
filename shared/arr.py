@@ -4,7 +4,7 @@ import requests
 from shared.shared import sonarr, radarr, checkRequiredEnvs
 
 def validateSonarrHost():
-    url = f"{sonarr['host']}"
+    url = f"{sonarr['host']}/login"
     try:
         response = requests.get(url)
         return response.status_code == 200
@@ -23,7 +23,7 @@ def validateSonarrApiKey():
     return True
 
 def validateRadarrHost():
-    url = f"{radarr['host']}"
+    url = f"{radarr['host']}/login"
     try:
         response = requests.get(url)
         return response.status_code == 200
