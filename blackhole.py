@@ -323,16 +323,15 @@ def fail(torrent: TorrentBase, arr: Arr):
     print(f"Failing")
     
     torrentHash = torrent.getHash()
-    history = arr.getHistory(blackhole['historyPageSize'])['records']
-    items = [item for item in history if item['data'].get('torrentInfoHash', '').casefold() == torrentHash.casefold() or cleanFileName(item['sourceTitle'].casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
-    
+    history = arr.getHistory(blackhole['historyPageSize'])
+    items = [item for item in history if (item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold()) or cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
     if not items:
         message = "No history items found to mark as failed. Arr will not attempt to grab an alternative."
         print(message)
         discordError(message, torrent.file.fileInfo.filenameWithoutExt)
     for item in items:
         # TODO: See if we can fail without blacklisting as cached items constantly changes
-        arr.failHistoryItem(item['id'])
+        arr.failHistoryItem(item.id)
     print(f"Failed")
     
 def getFiles(isRadarr):

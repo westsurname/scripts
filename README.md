@@ -125,6 +125,38 @@
     python3 python_watcher.py
     ```
 
+## Repair
+
+### Usage
+
+The repair script can be run with the following command:
+
+```bash
+python3 repair.py
+```
+The script accepts the following arguments:
+
+- `--dry-run`: Perform a dry run without making any changes.
+- `--no-confirm`: Execute without confirmation prompts.
+- `--repair-interval`: Optional interval in smart format (e.g., '1h2m3s') to wait between repairing each media file.
+- `--run-interval`: Optional interval in smart format (e.g., '1w2d3h4m5s') to run the repair process.
+- `--mode`: Choose repair mode: `symlink` or `file`. `symlink` to repair broken symlinks and `file` to repair missing files. (default: 'symlink').
+- `--include-unmonitored`: Include unmonitored media in the repair process.
+
+### Warning
+This script can potentially delete and re-download a large number of files. It is recommended to use the `--dry-run` flag first to see what actions the script will take.
+
+### Example
+
+Here's an example of how you might use this script:
+
+```bash
+python3 repair.py --mode file --repair-interval 30m --run-interval 1d --dry-run
+```
+
+In this example, the script will run in 'file' mode, waiting 30 minutes between each repair and running once a day. It will perform a dry run, printing actions without executing them.
+
+
 ## Import Torrent Folder
 
 ### Usage

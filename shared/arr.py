@@ -82,6 +82,10 @@ class Media(ABC):
     @property
     def anyFullyAvailableChildren(self):
         return bool(self.fullyAvailableChildrenIds)
+    
+    @property
+    def childrenIds(self):
+        pass
 
     @property
     @abstractmethod
@@ -101,6 +105,10 @@ class Movie(Media):
     @property
     def size(self):
         return self.json['sizeOnDisk']
+    
+    @property
+    def childrenIds(self):
+        return [self.id]
 
     @property
     def monitoredChildrenIds(self):
@@ -117,6 +125,10 @@ class Show(Media):
     @property
     def size(self):
         return self.json['statistics']['sizeOnDisk']
+    
+    @property
+    def childrenIds(self):
+        return [season['seasonNumber'] for season in self.json['seasons']]
 
     @property
     def monitoredChildrenIds(self):
@@ -167,17 +179,78 @@ class MovieFile(MediaFile):
     @property
     def parentId(self):
         return self.json['movieId']
+
+
+class MediaHistory(ABC):
+    def __init__(self, json) -> None:
+        super().__init__()
+        self.json = json
+
+    @property
+    def eventType(self):
+        return self.json['eventType']
+
+    @property
+    def reason(self):
+        return self.json['data'].get('reason')
+
+    @property
+    def quality(self):
+        return self.json['quality']['quality']['name']
+
+    @property
+    def id(self):
+        return self.json['id']
+
+    @property
+    def sourceTitle(self):
+        return self.json['sourceTitle']
+
+    @property
+    def torrentInfoHash(self):
+        return self.json['data'].get('torrentInfoHash')
+
+    @property
+    @abstractmethod
+    def parentId(self):
+        pass
+
+    @property
+    @abstractmethod
+    def isFileDeletedEvent(self):
+        pass
+
+class MovieHistory(MediaHistory):
+    @property
+    def parentId(self):
+        return self.json['movieId']
+
+    @property
+    def isFileDeletedEvent(self):
+        return self.eventType == 'movieFileDeleted'
+
+class EpisodeHistory(MediaHistory):
+    @property
+    # Requires includeGrandchildDetails to be true
+    def parentId(self):
+        return self.json['episode']['seasonNumber']
+
+    @property
+    def isFileDeletedEvent(self):
+        return self.eventType == 'episodeFileDeleted'
     
 class Arr(ABC):
-    def __init__(self, host: str, apiKey: str, endpoint: str, fileEndpoint: str, childIdName: str, childName: str, constructor: Type[Media], fileConstructor: Type[MediaFile]) -> None:
+    def __init__(self, host: str, apiKey: str, endpoint: str, fileEndpoint: str, childIdName: str, childName: str, grandchildName: str, constructor: Type[Media], fileConstructor: Type[MediaFile], historyConstructor: Type[MediaHistory]) -> None:
         self.host = host
         self.apiKey = apiKey
         self.endpoint = endpoint
         self.fileEndpoint = fileEndpoint
         self.childIdName = childIdName
         self.childName = childName
+        self.grandchildName = grandchildName
         self.constructor = constructor
         self.fileConstructor = fileConstructor
+        self.historyConstructor = historyConstructor
 
     def get(self, id: int):
         get = requests.get(f"{self.host}/api/v3/{self.endpoint}/{id}?apiKey={self.apiKey}")
@@ -190,9 +263,15 @@ class Arr(ABC):
     def put(self, media: Media):
         put = requests.put(f"{self.host}/api/v3/{self.endpoint}/{media.id}?apiKey={self.apiKey}&moveFiles=true", json=media.json)
 
-    def getFiles(self, media: Media):
-        files = requests.get(f"{self.host}/api/v3/{self.fileEndpoint}?apiKey={self.apiKey}&{self.endpoint}Id={media.id}")   
-        return map(self.fileConstructor, files.json())
+    def getFiles(self, media: Media, childId: int=None):
+        get = requests.get(f"{self.host}/api/v3/{self.fileEndpoint}?apiKey={self.apiKey}&{self.endpoint}Id={media.id}")   
+
+        files = map(self.fileConstructor, get.json())
+
+        if childId != None and childId != media.id:
+            files = filter(lambda file: file.parentId == childId, files)
+
+        return files
 
     def deleteFiles(self, files: List[MediaFile]):
         fileIds = [file.id for file in files]
@@ -200,12 +279,18 @@ class Arr(ABC):
 
         return delete.json()
 
-    def getHistory(self, pageSize: int):
-        historyRequest = requests.get(f"{self.host}/api/v3/history?pageSize={pageSize}&apiKey={self.apiKey}")
+    def getHistory(self, pageSize: int=None, includeGrandchildDetails: bool=False, media: Media=None, childId: int=None):
+        endpoint = f"/{self.endpoint}" if media else ''
+        pageSizeParam = f"pageSize={pageSize}&" if pageSize else ''
+        includeGrandchildDetailsParam = f"include{self.grandchildName}=true&" if includeGrandchildDetails else ''
+        idParam = f"{self.endpoint}Id={media.id}&" if media else ''
+        childIdParam = f"{self.childIdName}={childId}&" if media and childId != None and childId != media.id else ''
+        historyRequest = requests.get(f"{self.host}/api/v3/history{endpoint}?{pageSizeParam}{includeGrandchildDetailsParam}{idParam}{childIdParam}apiKey={self.apiKey}")
+        
         history = historyRequest.json()
 
-        return history
-
+        return map(self.historyConstructor, history['records'] if isinstance(history, dict) else history)
+    
     def failHistoryItem(self, historyId: int):
         failRequest = requests.post(f"{self.host}/api/v3/history/failed/{historyId}?apiKey={self.apiKey}")
 
@@ -225,6 +310,7 @@ class Arr(ABC):
 
     def _automaticSearchJson(self, media: Media, childId: int):
         pass
+
 class Sonarr(Arr):
     host = sonarr['host']
     apiKey = sonarr['apiKey']
@@ -232,9 +318,10 @@ class Sonarr(Arr):
     fileEndpoint = 'episodefile'
     childIdName = 'seasonNumber'
     childName = 'Season'
+    grandchildName = 'Episode'
 
     def __init__(self) -> None:
-        super().__init__(Sonarr.host, Sonarr.apiKey, Sonarr.endpoint, Sonarr.fileEndpoint, Sonarr.childIdName, Sonarr.childName, Show, EpisodeFile)
+        super().__init__(Sonarr.host, Sonarr.apiKey, Sonarr.endpoint, Sonarr.fileEndpoint, Sonarr.childIdName, Sonarr.childName, Sonarr.grandchildName, Show, EpisodeFile, EpisodeHistory)
 
     def _automaticSearchJson(self, media: Media, childId: int):
         return {"name": f"{self.childName}Search", f"{self.endpoint}Id": media.id, self.childIdName: childId}
@@ -246,9 +333,10 @@ class Radarr(Arr):
     fileEndpoint = 'moviefile'
     childIdName = None
     childName = 'Movies'
+    grandchildName = 'Movie'
 
     def __init__(self) -> None:
-        super().__init__(Radarr.host, Radarr.apiKey, Radarr.endpoint, Radarr.fileEndpoint, None, Radarr.childName, Movie, MovieFile)
+        super().__init__(Radarr.host, Radarr.apiKey, Radarr.endpoint, Radarr.fileEndpoint, Radarr.childIdName, Radarr.childName, Radarr.grandchildName, Movie, MovieFile, MovieHistory)
 
     def _automaticSearchJson(self, media: Media, childId: int):
         return {"name": f"{self.childName}Search", f"{self.endpoint}Ids": [media.id]}
