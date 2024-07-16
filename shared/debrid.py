@@ -190,6 +190,8 @@ class RealDebrid(TorrentBase):
 
             instantAvailabilities = instantAvailabilityRequest.json()
             self.print('instantAvailabilities:', instantAvailabilities)
+            if not instantAvailabilities: return
+
             instantAvailabilityHosters = next(iter(instantAvailabilities.values()))
             if not instantAvailabilityHosters: return
 
