@@ -184,6 +184,24 @@ services:
     restart: unless-stopped
     profiles: [plex_request, all]
 
+  plex_request_nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.plex_request_nginx
+    container_name: plex_request_nginx_service
+    image: ghcr.io/westsurname/scripts/plex_request_nginx:latest
+    pull_policy: always
+    volumes:
+      - ${PLEX_REQUEST_SSL_PATH:-/dev/null}:${PLEX_REQUEST_SSL_PATH:-/dev/null}:ro
+    ports:
+      - 8002:8000
+    env_file:
+      - .env
+    restart: unless-stopped
+    profiles: [plex_request, all]
+    depends_on:
+      - plex_request
+
 networks:
   default:
     name: ${DOCKER_NETWORK:-scripts_default}

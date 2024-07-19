@@ -85,6 +85,13 @@
      - `BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT`: The timeout in seconds to wait for a torrent to be successful before failing.
      - `BLACKHOLE_HISTORY_PAGE_SIZE`: The number of history items to pull at once when attempting to mark a download as failed.
 
+   - **Plex Request** - Plex Request:
+     - `PLEX_REQUEST_SSL_PATH` (Optional): The path to SSL certificates for Plex Request. If provided, this directory should contain the following files:
+       - `fullchain.pem`: The full certificate chain file.
+       - `privkey.pem`: The private key file.
+       - `chain.pem`: The certificate chain file.
+       - `dhparam.pem`: The Diffie-Hellman parameters file.
+
    - **Discord** - Blackhole, Watchlist, Plex Authentication, Plex Request, Monitor Ram, Reclaim Space:
      - `DISCORD_ENABLED`: Set to `true` to enable Discord error notifications.
      - `DISCORD_UPDATE_ENABLED`: Set to `true` to enable update notifications as well on Discord.
