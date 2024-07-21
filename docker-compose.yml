@@ -160,13 +160,13 @@ services:
     volumes:
       - ./shared/tokens.json:/app/shared/tokens.json
     ports:
-      - 8000:8000
+      - 8010:8000
     env_file:
       - .env
-    environment:
-      - SERVER_DOMAIN=${SERVER_DOMAIN}:8000
+    # environment:
+    #   - SERVER_DOMAIN=${SERVER_DOMAIN}:8010
     restart: unless-stopped
-    profiles: [plex_authentication, all]
+    profiles: [plex_authentication, watchlist, plex_request, all]
 
   plex_request:
     build: 
@@ -178,7 +178,7 @@ services:
     volumes:
       - ./shared/tokens.json:/app/shared/tokens.json
     ports:
-      - 8001:8000
+      - 8011:8000
     env_file:
       - .env
     restart: unless-stopped
@@ -194,7 +194,7 @@ services:
     volumes:
       - ${PLEX_REQUEST_SSL_PATH:-/dev/null}:${PLEX_REQUEST_SSL_PATH:-/dev/null}:ro
     ports:
-      - 8002:8000
+      - 8012:8000
     env_file:
       - .env
     restart: unless-stopped
