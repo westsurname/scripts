@@ -12,12 +12,18 @@ from datetime import datetime
 # import urllib
 from werkzeug.utils import cached_property
 from abc import ABC, abstractmethod
-from shared.discord import discordError, discordUpdate
+from shared.discord import discordError, discordUpdate, discordStatusUpdate
 from shared.shared import realdebrid, blackhole, plex, mediaExtensions, checkRequiredEnvs
 from shared.arr import Arr, Radarr, Sonarr
+from blackhole_downloader import downloader
+from RTN import parse
+import threading
 
 rdHost = realdebrid['host']
 authToken = realdebrid['apiKey']
+shared_dict = {}
+# lock = threading.Lock()
+webhook = discordStatusUpdate(shared_dict, create=True)
 
 _print = print
 
@@ -150,6 +156,7 @@ class TorrentBase(ABC):
             instantAvailabilityRequest = requests.get(f"{rdHost}torrents/instantAvailability/{torrentHash}?auth_token={authToken}")
             instantAvailabilities = instantAvailabilityRequest.json()
             self.print('instantAvailabilities:', instantAvailabilities)
+            if not instantAvailabilities: return
             instantAvailabilityHosters = next(iter(instantAvailabilities.values()))
             if not instantAvailabilityHosters: return
 
@@ -172,6 +179,32 @@ class TorrentBase(ABC):
 
         return self._info
 
+    def getActiveTorrents(self):
+        activeCount = requests.get(f"{rdHost}torrents/activeCount?auth_token={authToken}")
+        activeTorrents = activeCount.json()
+
+        return activeTorrents
+    
+    def getAllTorrents(self):
+        allTorrents = []
+        page = 1
+        limit = 2500
+
+        while True:
+            response = requests.get(f"{rdHost}torrents?auth_token={authToken}", params={"page": page, "limit": limit})
+            if response.status_code != 200:
+                print(f"Error: {response.status_code} - {response.text}")
+                break
+
+            torrentInfo = response.json()
+            if not torrentInfo:
+                break
+
+            allTorrents.extend(torrentInfo)
+            page += 1
+
+        return allTorrents
+
     def selectFiles(self):
         self._enforceId()
 
@@ -193,7 +226,7 @@ class TorrentBase(ABC):
 
         if self.failIfNotCached and not self.incompatibleHashSize:
             targetFileIds = {largestMediaFileId} if self.onlyLargestFile else mediaFileIds
-            if not any(set(fileGroup.keys()) == targetFileIds for fileGroup in self._instantAvailability):
+            if self._instantAvailability and not any(set(fileGroup.keys()) == targetFileIds for fileGroup in self._instantAvailability):
                 extraFilesGroup = next((fileGroup for fileGroup in self._instantAvailability if largestMediaFileId in fileGroup.keys()), None)
                 if self.onlyLargestFile and extraFilesGroup:
                     self.print('extra files required for cache:', extraFilesGroup)
@@ -317,7 +350,7 @@ def copyFiles(file: TorrentFileInfo, folderPathMountTorrent, arr: Arr):
 
 import signal
 
-async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached=None):
+async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached=None, lock=None):
     try:
         _print = globals()['print']
 
@@ -342,9 +375,10 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                     return False
                 finally:
                     executor.shutdown(wait=False)
-
+        if not os.path.exists(file.fileInfo.filePathProcessing):
+            return
         with open(file.fileInfo.filePathProcessing, 'rb' if file.torrentInfo.isDotTorrentFile else 'r') as f:
-            def fail(torrent: TorrentBase, arr: Arr=arr, uncached=False):
+            async def fail(torrent: TorrentBase, arr: Arr=arr, uncached=False):
                 print(f"Failing")
 
                 history = arr.getHistory(blackhole['historyPageSize'])['records']
@@ -353,15 +387,43 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                 if not items:
                     raise Exception("No history items found to cancel")
                 
+                first_item = None
+                total_items = 0
                 for item in items:
+                    if first_item is None:
+                        first_item = item  
                     # TODO: See if we can fail without blacklisting as cached items constantly changes
                     arr.failHistoryItem(item['id'])
+                    arr.removeFailedItem(item['id']) ## Removing from blocklist
+                    total_items += 1
 
-                if uncached and items:
-                    ids = '-'.join(str(item.get('episodeId', item['movieId'])) for item in items)
-                    path = os.path.join(getPath(isRadarr), 'uncached', ids)
-                    os.renames(torrent.file.fileInfo.filePathProcessing, path)
+                if uncached and items and first_item:
+                    itemId = str(first_item.get('seriesId', first_item.get('movieId')))
+                    path = os.path.join(getPath(isRadarr), 'uncached', itemId, torrent.file.fileInfo.filename)
+                    if not isRadarr:
+                        if total_items == 1: # and first_item["releaseType"] != "SeasonPack"
+                            episodeId = str(first_item['episodeId']) ## Fallback? data --> releaseType --> SeasonPack 
+                            path = os.path.join(getPath(isRadarr), 'uncached', itemId, episodeId, torrent.file.fileInfo.filename)
+                        else:
+                            seasonPack = 'seasonpack'
+                            parsedTorrent = parse(torrent.file.fileInfo.filename) ## Fallback? episode --> seasonNumber 
+                            seasons = [str(pt) for pt in parsedTorrent.season]
+                            seasons = "-".join(seasons)
+                            path = os.path.join(getPath(isRadarr), 'uncached', itemId, seasonPack, seasons, torrent.file.fileInfo.filename)
 
+                    if not os.path.exists(path):
+                        os.renames(torrent.file.fileInfo.filePathProcessing, path)
+                    elif os.path.exists(file.fileInfo.filePathProcessing):
+                        os.remove(file.fileInfo.filePathProcessing)
+                    await downloader(torrent, file, arr, path, shared_dict, lock, webhook)
+                elif not first_item:
+                    arr.clearBlocklist()
+                    os.remove(file.fileInfo.filePathProcessing)
+                    if os.path.exists(file.fileInfo.filePath):
+                        os.remove(file.fileInfo.filePath)
+                    return
+                    allItems = arr.getAll()
+                    # TODO: Trigger scan for the deleted torrent which don't exist in history
                 print(f"Failed")
                             
 
@@ -373,7 +435,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                 torrent = Magnet(f, file, failIfNotCached, onlyLargestFile)
             
             if not torrent.submitTorrent():
-                historyItems = fail(torrent, uncached=True)
+                historyItems = await fail(torrent, uncached=True)
             else:
                 count = 0
                 while True:
@@ -386,7 +448,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                     if status == 'waiting_files_selection':
                         if not torrent.selectFiles():
                             torrent.delete()
-                            fail(torrent)
+                            await fail(torrent)
                             break
                     elif status == 'magnet_conversion' or status == 'queued' or status == 'downloading' or status == 'compressing' or status == 'uploading':
                         # Send progress to arr
@@ -395,11 +457,11 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                         if torrent.incompatibleHashSize and torrent.failIfNotCached:
                             print("Non-cached incompatible hash sized torrent")
                             torrent.delete()
-                            fail(torrent, uncached=True)
+                            await fail(torrent, uncached=True)
                             break
                         await asyncio.sleep(1)
                     elif status == 'magnet_error' or status == 'error' or status == 'dead' or status == 'virus':
-                        fail(torrent)
+                        await fail(torrent)
                         break
                     elif status == 'downloaded':
                         existsCount = 0
@@ -435,6 +497,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                                 for root, dirs, files in os.walk(folderPathMountTorrent):
                                     relRoot = os.path.relpath(root, folderPathMountTorrent)
                                     for filename in files:
+                                        source_link = os.path.join(root, filename)
                                         # Check if the file is accessible
                                         # if not await is_accessible(os.path.join(root, filename)):
                                         #     print(f"Timeout reached when accessing file: {filename}")
@@ -454,18 +517,24 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                                                 seasonFolderPathCompleted = re.sub(multiSeasonRegex2, season, seasonFolderPathCompleted)
 
                                                 os.makedirs(os.path.join(seasonFolderPathCompleted, relRoot), exist_ok=True)
-                                                os.symlink(os.path.join(root, filename), os.path.join(seasonFolderPathCompleted, relRoot, filename))
-                                                print('Season Recursive:', f"{os.path.join(seasonFolderPathCompleted, relRoot, filename)} -> {os.path.join(root, filename)}")
+                                                target_link = os.path.join(seasonFolderPathCompleted, relRoot, filename)
+                                                if os.path.islink(target_link):
+                                                    os.remove(target_link)
+                                                os.symlink(source_link, target_link)
+                                                print('Season Recursive:', f"{target_link} -> {source_link}")
                                                 # refreshEndpoint = f"{plex['serverHost']}/library/sections/{plex['serverMovieLibraryId'] if isRadarr else plex['serverTvShowLibraryId']}/refresh?path={urllib.parse.quote_plus(os.path.join(seasonFolderPathCompleted, relRoot))}&X-Plex-Token={plex['serverApiKey']}"
                                                 # cancelRefreshRequest = requests.delete(refreshEndpoint, headers={'Accept': 'application/json'})
                                                 # refreshRequest = requests.get(refreshEndpoint, headers={'Accept': 'application/json'})
 
                                                 continue
 
-
+                                        
+                                        target_link = os.path.join(file.fileInfo.folderPathCompleted, relRoot, filename)
                                         os.makedirs(os.path.join(file.fileInfo.folderPathCompleted, relRoot), exist_ok=True)
-                                        os.symlink(os.path.join(root, filename), os.path.join(file.fileInfo.folderPathCompleted, relRoot, filename))
-                                        print('Recursive:', f"{os.path.join(file.fileInfo.folderPathCompleted, relRoot, filename)} -> {os.path.join(root, filename)}")
+                                        if os.path.islink(target_link):
+                                            os.remove(target_link)
+                                        os.symlink(source_link, target_link)
+                                        print('Recursive:', f"{target_link} -> {source_link}")
                                         # refreshEndpoint = f"{plex['serverHost']}/library/sections/{plex['serverMovieLibraryId'] if isRadarr else plex['serverTvShowLibraryId']}/refresh?path={urllib.parse.quote_plus(os.path.join(file.fileInfo.folderPathCompleted, relRoot))}&X-Plex-Token={plex['serverApiKey']}"
                                         # cancelRefreshRequest = requests.delete(refreshEndpoint, headers={'Accept': 'application/json'})
                                         # refreshRequest = requests.get(refreshEndpoint, headers={'Accept': 'application/json'})
@@ -493,11 +562,14 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                             print('infoCount > 20')
                             discordError(f"{file.fileInfo.filenameWithoutExt} info attempt count > 20", status)
                         elif count == blackhole['waitForTorrentTimeout']:
-                            print('infoCount == 60 - Failing')
-                            fail(torrent)
+                            print(f"infoCount == {blackhole['waitForTorrentTimeout']} - Failing")
+                            await fail(torrent)
                             break
 
-            os.remove(file.fileInfo.filePathProcessing)
+                os.remove(file.fileInfo.filePathProcessing)
+                print("FILEPATH REMOVING: ", file.fileInfo.filePath)
+                if os.path.exists(file.fileInfo.filePath):
+                    os.remove(file.fileInfo.filePath)
     except:
         e = traceback.format_exc()
 
@@ -511,7 +583,7 @@ def getFiles(isRadarr):
     files = (TorrentFileInfo(filename, isRadarr) for filename in os.listdir(getPath(isRadarr)) if filename not in ['processing', 'completed', 'uncached'])
     return [file for file in files if file.torrentInfo.isTorrentOrMagnet]
 
-async def on_created(isRadarr):
+async def on_created(isRadarr, lock):
     print("Enter 'on_created'")
     try:
         print('radarr/sonarr:', 'radarr' if isRadarr else 'sonarr')
@@ -530,7 +602,7 @@ async def on_created(isRadarr):
             if files:
                 for file in files:
                     os.renames(file.fileInfo.filePath, file.fileInfo.filePathProcessing)
-                futures.append(asyncio.gather(*(processFile(file, arr, isRadarr) for file in files)))
+                futures.append(asyncio.gather(*(processFile(file, arr, isRadarr, lock=lock) for file in files)))
             elif firstGo:
                 print('No torrent files found')
             firstGo = False
@@ -546,8 +618,8 @@ async def on_created(isRadarr):
         discordError(f"Error processing", e)
     print("Exit 'on_created'")
 
-def start(isRadarr):
-    asyncio.run(on_created(isRadarr))
+def start(isRadarr, lock):
+    asyncio.run(on_created(isRadarr, lock))
 
 def removeDir(dirPath):
     files = os.listdir(dirPath)
@@ -555,37 +627,7 @@ def removeDir(dirPath):
         os.remove(os.path.join(dirPath, file))
     os.rmdir(dirPath)
 
-async def processUncachedDir(root, dir, arr, isRadarr):
-    try:
-        dirPath = os.path.join(root, dir)
-        files = os.listdir(dirPath)
-        if not files:
-            os.rmdir(dirPath)
-            return
-
-        ids = dir.split('-')
-        if all(arr.getGrandchild(id).hasFile for id in ids):
-            removeDir(dirPath)
-            return
-
-        files = sorted((os.path.join(dirPath, file) for file in files), key=os.path.getctime)
-
-        newestFileTime = os.path.getctime(files[-1])
-        if (time.time() - newestFileTime) <= 900:  # 15 minutes
-            return
-        
-        oldestFile = files[0]
-        await processFile(TorrentFileInfo(os.path.basename(oldestFile), isRadarr, oldestFile), arr, isRadarr, failIfNotCached=False)
-        removeDir(dirPath)
-    except:
-        e = traceback.format_exc()
-
-        print(f"Error processing uncached directory: {dirPath}")
-        print(e)
-        
-        discordError(f"Error processing uncached directory: {dirPath}", e)
-
-async def processUncached():
+async def resumeUncached(lock):
     print('Processing uncached')
     try:
         radarr = Radarr()
@@ -594,10 +636,25 @@ async def processUncached():
         paths = [(os.path.join(getPath(isRadarr=True), 'uncached'), radarr, True), (os.path.join(getPath(isRadarr=False), 'uncached'), sonarr, False)]
 
         futures: list[asyncio.Future] = []
-
+        processed_files = set()
+        
         for path, arr, isRadarr in paths:
             for root, dirs, _ in os.walk(path):
-                futures.append(asyncio.gather(*(processUncachedDir(root, dir, arr, isRadarr) for dir in dirs)))
+                if not dirs:
+                    if os.path.exists(root) and not os.listdir(root):
+                        os.removedirs(root)
+                        continue
+                    print(os.listdir(root))
+                    files = (TorrentFileInfo(filename, isRadarr, os.path.join(root, filename)) for filename in os.listdir(root))
+                    files = [file for file in files if file.torrentInfo.isTorrentOrMagnet]
+                    for file in files:
+                        if file.fileInfo.filename not in processed_files:
+                            shutil.copy(file.fileInfo.filePath, file.fileInfo.filePathProcessing)
+                            processed_files.add(file.fileInfo.filename)
+                            futures.append(asyncio.gather(processFile(file, arr, isRadarr, lock=lock))) # create_task
+                        else:
+                            os.remove(file.fileInfo.filePath)
+
 
         await asyncio.gather(*futures)
     except:

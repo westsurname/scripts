@@ -39,3 +39,37 @@ def discordUpdate(title, message=None):
             embeds=[embed]
         )
         response = webhook.execute()
+
+def discordStatusUpdate(torrentDict, webhook=None, create=False, edit=False, delete=False):
+    if discord['updateEnabled']:
+        if delete:
+            webhook.remove_embeds()
+            embed = DiscordEmbed("Downloading Status", f"No Active Downloads", color=9807270)
+            webhook.add_embed(embed)
+            response = webhook.edit()
+            return response
+        if create:
+            webhook = DiscordWebhook(
+                url=discord['webhookUrl'], 
+                rate_limit_retry=True, 
+                username='Status Bot'
+            )
+            return webhook
+        
+        if not edit:
+            embed = DiscordEmbed("Downloading Status", f"Current downloading - {len(torrentDict)}", color=16776960)
+            for filename,progress in torrentDict.items():
+                embed.add_embed_field(name=filename, value=progress, inline=False)
+                
+            webhook.add_embed(embed)
+            response = webhook.execute(remove_embeds=True)
+            return webhook
+        else:
+            webhook.remove_embeds()
+            embed = DiscordEmbed("Downloading Status", f"Current downloading - {len(torrentDict)}", color=16776960)
+            for filename,progress in torrentDict.items():
+                embed.add_embed_field(name=filename, value=progress, inline=False)
+
+            webhook.add_embed(embed)
+            response = webhook.edit()
+            return webhook

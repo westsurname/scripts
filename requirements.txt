@@ -4,6 +4,7 @@ requests==2.28.1 #all
 
 bencode3==0.1.0 #blackhole
 watchdog==4.0.0 #blackhole
+rank-torrent-name #blackhole
 
 flask==3.0.2 #plex_request
 Flask-Caching==2.1.0 #plex_request
