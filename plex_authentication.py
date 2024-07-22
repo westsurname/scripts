@@ -5,8 +5,6 @@ from flask import Flask, jsonify, redirect, url_for
 from shared.shared import server, watchlist, plexHeaders, tokensFilename
 from shared.overseerr import getUserForPlexToken
 from shared.plex import getServerToken
-from werkzeug.serving import run_simple
-from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 host = server['host']
@@ -14,7 +12,6 @@ host = server['host']
 # instantiate the app
 app = Flask(__name__)
 app.config.from_object(__name__)
-# app.config['SERVER_NAME'] = f"{host}"
 
 
 @app.route('/', methods=['GET'])
@@ -59,7 +56,6 @@ def setupComplete(pin):
 
     return jsonify('There was an error, please try again.')
 
-# app.wsgi_app = DispatcherMiddleware(run_simple, {'/plexAuthentication': app.wsgi_app})
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
     
 if __name__ == '__main__':
