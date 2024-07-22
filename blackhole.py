@@ -22,7 +22,7 @@ import threading
 rdHost = realdebrid['host']
 authToken = realdebrid['apiKey']
 shared_dict = {}
-lock = threading.Lock()
+# lock = threading.Lock()
 webhook = discordStatusUpdate(shared_dict, create=True)
 
 _print = print
@@ -156,6 +156,7 @@ class TorrentBase(ABC):
             instantAvailabilityRequest = requests.get(f"{rdHost}torrents/instantAvailability/{torrentHash}?auth_token={authToken}")
             instantAvailabilities = instantAvailabilityRequest.json()
             self.print('instantAvailabilities:', instantAvailabilities)
+            if not instantAvailabilities: return
             instantAvailabilityHosters = next(iter(instantAvailabilities.values()))
             if not instantAvailabilityHosters: return
 
@@ -349,7 +350,7 @@ def copyFiles(file: TorrentFileInfo, folderPathMountTorrent, arr: Arr):
 
 import signal
 
-async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached=None):
+async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached=None, lock=None):
     try:
         _print = globals()['print']
 
@@ -374,7 +375,8 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                     return False
                 finally:
                     executor.shutdown(wait=False)
-
+        if not os.path.exists(file.fileInfo.filePathProcessing):
+            return
         with open(file.fileInfo.filePathProcessing, 'rb' if file.torrentInfo.isDotTorrentFile else 'r') as f:
             async def fail(torrent: TorrentBase, arr: Arr=arr, uncached=False):
                 print(f"Failing")
@@ -411,15 +413,15 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
 
                     if not os.path.exists(path):
                         os.renames(torrent.file.fileInfo.filePathProcessing, path)
-                    else:
+                    elif os.path.exists(file.fileInfo.filePathProcessing):
                         os.remove(file.fileInfo.filePathProcessing)
                     await downloader(torrent, file, arr, path, shared_dict, lock, webhook)
                 elif not first_item:
+                    arr.clearBlocklist()
                     os.remove(file.fileInfo.filePathProcessing)
                     if os.path.exists(file.fileInfo.filePath):
                         os.remove(file.fileInfo.filePath)
                     return
-                    arr.clearBlocklist()
                     allItems = arr.getAll()
                     # TODO: Trigger scan for the deleted torrent which don't exist in history
                 print(f"Failed")
@@ -565,6 +567,9 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                             break
 
                 os.remove(file.fileInfo.filePathProcessing)
+                print("FILEPATH REMOVING: ", file.fileInfo.filePath)
+                if os.path.exists(file.fileInfo.filePath):
+                    os.remove(file.fileInfo.filePath)
     except:
         e = traceback.format_exc()
 
@@ -578,7 +583,7 @@ def getFiles(isRadarr):
     files = (TorrentFileInfo(filename, isRadarr) for filename in os.listdir(getPath(isRadarr)) if filename not in ['processing', 'completed', 'uncached'])
     return [file for file in files if file.torrentInfo.isTorrentOrMagnet]
 
-async def on_created(isRadarr):
+async def on_created(isRadarr, lock):
     print("Enter 'on_created'")
     try:
         print('radarr/sonarr:', 'radarr' if isRadarr else 'sonarr')
@@ -597,7 +602,7 @@ async def on_created(isRadarr):
             if files:
                 for file in files:
                     os.renames(file.fileInfo.filePath, file.fileInfo.filePathProcessing)
-                futures.append(asyncio.gather(*(processFile(file, arr, isRadarr) for file in files)))
+                futures.append(asyncio.gather(*(processFile(file, arr, isRadarr, lock=lock) for file in files)))
             elif firstGo:
                 print('No torrent files found')
             firstGo = False
@@ -613,8 +618,8 @@ async def on_created(isRadarr):
         discordError(f"Error processing", e)
     print("Exit 'on_created'")
 
-def start(isRadarr):
-    asyncio.run(on_created(isRadarr))
+def start(isRadarr, lock):
+    asyncio.run(on_created(isRadarr, lock))
 
 def removeDir(dirPath):
     files = os.listdir(dirPath)
@@ -622,7 +627,7 @@ def removeDir(dirPath):
         os.remove(os.path.join(dirPath, file))
     os.rmdir(dirPath)
 
-async def resumeUncached():
+async def resumeUncached(lock):
     print('Processing uncached')
     try:
         radarr = Radarr()
@@ -636,7 +641,7 @@ async def resumeUncached():
         for path, arr, isRadarr in paths:
             for root, dirs, _ in os.walk(path):
                 if not dirs:
-                    if not os.listdir(root):
+                    if os.path.exists(root) and not os.listdir(root):
                         os.removedirs(root)
                         continue
                     print(os.listdir(root))
@@ -646,7 +651,7 @@ async def resumeUncached():
                         if file.fileInfo.filename not in processed_files:
                             shutil.copy(file.fileInfo.filePath, file.fileInfo.filePathProcessing)
                             processed_files.add(file.fileInfo.filename)
-                            futures.append(asyncio.create_task(processFile(file, arr, isRadarr)))
+                            futures.append(asyncio.gather(processFile(file, arr, isRadarr, lock=lock))) # create_task
                         else:
                             os.remove(file.fileInfo.filePath)
 

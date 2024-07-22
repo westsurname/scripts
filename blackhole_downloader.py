@@ -26,7 +26,7 @@ async def downloader(torrent, file, arr, torrentFile, shared_dict, lock, webhook
                     lock.acquire()
                     if torrentName in shared_dict:
                         lock.release()
-                        remove_file(torrentFile)
+                        remove_file(torrentFile, lock, shared_dict, torrentName, webhook)
                         return
                     lock.release()
                     break
@@ -177,9 +177,9 @@ async def downloader(torrent, file, arr, torrentFile, shared_dict, lock, webhook
                 print(f"infoCount == {blackhole['waitForTorrentTimeout']} - Failing")
                 torrent.delete()
                 break
-    remove_file(torrentFile)
+    remove_file(torrentFile, lock, shared_dict, torrentName, webhook)
     
-def remove_file(torrentFile)
+def remove_file(torrentFile, lock, shared_dict, torrentName, webhook):
     if os.path.exists(torrentFile):
         folder_path = os.path.dirname(torrentFile)
         all_files = glob.glob(os.path.join(folder_path, '*'))
