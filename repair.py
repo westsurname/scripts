@@ -3,7 +3,7 @@ import argparse
 import time
 import shared.debrid # Run validation
 from shared.arr import Sonarr, Radarr
-from shared.discord import discordUpdate
+from shared.discord import discordUpdate, discordError
 from shared.shared import repair, realdebrid, torbox, intersperse
 from datetime import datetime
 
@@ -62,68 +62,78 @@ def main():
     print("Finished collecting media.")
     
     for arr, media in intersperse(sonarrMedia, radarrMedia):
-        getItems = lambda media, childId: arr.getFiles(media=media, childId=childId) if args.mode == 'symlink' else arr.getHistory(media=media, childId=childId, includeGrandchildDetails=True)
-        childrenIds = media.childrenIds if args.include_unmonitored else media.monitoredChildrenIds
+        try:
+            getItems = lambda media, childId: arr.getFiles(media=media, childId=childId) if args.mode == 'symlink' else arr.getHistory(media=media, childId=childId, includeGrandchildDetails=True)
+            childrenIds = media.childrenIds if args.include_unmonitored else media.monitoredChildrenIds
 
-        for childId in childrenIds:
-            brokenItems = []
-            childItems = list(getItems(media=media, childId=childId))
+            for childId in childrenIds:
+                brokenItems = []
+                childItems = list(getItems(media=media, childId=childId))
 
-            for item in childItems:
-                if args.mode == 'symlink':
-                    fullPath = item.path
-                    if os.path.islink(fullPath):
-                        destinationPath = os.readlink(fullPath)
-                        if ((realdebrid['enabled'] and destinationPath.startswith(realdebrid['mountTorrentsPath']) and not os.path.exists(destinationPath)) or 
-                           (torbox['enabled'] and destinationPath.startswith(torbox['mountTorrentsPath']) and not os.path.exists(os.path.realpath(fullPath)))):
-                            brokenItems.append(os.path.realpath(fullPath))
-                else:  # file mode
-                    if item.reason == 'MissingFromDisk' and item.parentId not in media.fullyAvailableChildrenIds:
-                        brokenItems.append(item.sourceTitle)
-
-            if brokenItems:
-                print("Title:", media.title)
-                print("Movie ID/Season Number:", childId)
-                print("Broken items:")
-                [print(item) for item in brokenItems]
-                print()
-                if args.dry_run or args.no_confirm or input("Do you want to delete and re-grab? (y/n): ").lower() == 'y':
-                    if not args.dry_run:
-                        discordUpdate(f"[{args.mode}] Repairing {media.title}: {childId}")
+                for item in childItems:
                     if args.mode == 'symlink':
+                        fullPath = item.path
+                        if os.path.islink(fullPath):
+                            destinationPath = os.readlink(fullPath)
+                            if ((realdebrid['enabled'] and destinationPath.startswith(realdebrid['mountTorrentsPath']) and not os.path.exists(destinationPath)) or 
+                               (torbox['enabled'] and destinationPath.startswith(torbox['mountTorrentsPath']) and not os.path.exists(os.path.realpath(fullPath)))):
+                                brokenItems.append(os.path.realpath(fullPath))
+                    else:  # file mode
+                        if item.reason == 'MissingFromDisk' and item.parentId not in media.fullyAvailableChildrenIds:
+                            brokenItems.append(item.sourceTitle)
+
+                if brokenItems:
+                    print("Title:", media.title)
+                    print("Movie ID/Season Number:", childId)
+                    print("Broken items:")
+                    [print(item) for item in brokenItems]
+                    print()
+                    if args.dry_run or args.no_confirm or input("Do you want to delete and re-grab? (y/n): ").lower() == 'y':
+                        if not args.dry_run:
+                            discordUpdate(f"[{args.mode}] Repairing {media.title}: {childId}")
                         print("Deleting files:")
                         [print(item.path) for item in childItems]
                         if not args.dry_run:
                             results = arr.deleteFiles(childItems)
-                    if not args.dry_run:
-                        print("Re-monitoring")
-                        media = arr.get(media.id)
-                        media.setChildMonitored(childId, False)
-                        arr.put(media)
-                        media.setChildMonitored(childId, True)
-                        arr.put(media)
-                        print("Searching for new files")
-                        results = arr.automaticSearch(media, childId)
-                        print(results)
-                        
-                        if repairIntervalSeconds > 0:
-                            time.sleep(repairIntervalSeconds)
-                else:
-                    print("Skipping")
-                print()
-            elif args.mode == 'symlink':
-                realPaths = [os.path.realpath(item.path) for item in childItems]
-                parentFolders = set(os.path.dirname(path) for path in realPaths)
-                if childId in media.fullyAvailableChildrenIds and len(parentFolders) > 1:
-                    print("Title:", media.title)
-                    print("Movie ID/Season Number:", childId)
-                    print("Inconsistent folders:")
-                    [print(parentFolder) for parentFolder in parentFolders]
+                            print("Re-monitoring")
+                            media = arr.get(media.id)
+                            media.setChildMonitored(childId, False)
+                            arr.put(media)
+                            media.setChildMonitored(childId, True)
+                            arr.put(media)
+                            print("Searching for new files")
+                            results = arr.automaticSearch(media, childId)
+                            print(results)
+                            
+                            if repairIntervalSeconds > 0:
+                                time.sleep(repairIntervalSeconds)
+                    else:
+                        print("Skipping")
                     print()
+                elif args.mode == 'symlink':
+                    realPaths = [os.path.realpath(item.path) for item in childItems]
+                    parentFolders = set(os.path.dirname(path) for path in realPaths)
+                    if childId in media.fullyAvailableChildrenIds and len(parentFolders) > 1:
+                        print("Title:", media.title)
+                        print("Movie ID/Season Number:", childId)
+                        print("Inconsistent folders:")
+                        [print(parentFolder) for parentFolder in parentFolders]
+                        print()
+        except Exception as e:
+            print(f"An error occurred while processing {media.title}: {str(e)}")
+            discordError(f"[{args.mode}] An error occurred while processing {media.title}", str(e))
+
+    print("Repair complete")
+    discordUpdate(f"[{args.mode}] Repair complete")
 
 if runIntervalSeconds > 0:
     while True:
-        main()
-        time.sleep(runIntervalSeconds)
+        try:
+            main()
+            time.sleep(runIntervalSeconds)
+        except Exception as e:
+            print(f"An error occurred in the main loop: {str(e)}")
+            discordError(f"[{args.mode}] An error occurred in the main loop", str(e))
+            time.sleep(runIntervalSeconds)  # Still wait before retrying
 else:
     main()
