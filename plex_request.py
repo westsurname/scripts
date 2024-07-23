@@ -93,7 +93,7 @@ def requestRatingKey(mediaType, mediaTypeNum, ratingKey, season=None):
             user = getUserForPlexServerToken(token)
             metadataHeaders = {
                 **plexHeaders,
-                'X-Plex-Token': user['authToken']
+                'X-Plex-Token': plex['serverApiKey']
             }
             requestItem(user, ratingKey, datetime.now().timestamp(), metadataHeaders, getSeason=lambda: [int(season)])
 
@@ -189,13 +189,17 @@ def all():
                 user = getUserForPlexServerToken(token)
                 metadataHeaders = {
                     **plexHeaders,
-                    'X-Plex-Token': user['authToken']
+                    'X-Plex-Token': plex['serverApiKey']
                 }
 
-                metadataAllRequest = requests.get(f"{plex['metadataHost']}library/metadata/{guid}", headers=metadataHeaders, params=request.args)
+                args = dict(request.args)
+                if 'X-Plex-Token' in args:
+                    del args['X-Plex-Token']
+
+                metadataAllRequest = requests.get(f"{plex['metadataHost']}library/metadata/{guid}", headers=metadataHeaders, params=args)
                 # print(f"{plex['metadataHost']}library/metadata/{guid}")
                 # print(metadataHeaders)
-                # print(request.args)
+                # print(args)
                 print(metadataAllRequest)
                 # print(metadataAllRequest.text)
                 if metadataAllRequest.status_code == 200:
@@ -279,10 +283,14 @@ def children(id):
             user = getUserForPlexServerToken(token)
             metadataHeaders = {
                 **plexHeaders,
-                'X-Plex-Token': user['authToken']
+                'X-Plex-Token': plex['serverApiKey']
             }
 
-            metadataChildrenRequest = requests.get(f"{plex['metadataHost']}library/metadata/{guid}/children", headers=metadataHeaders, params=request.args)
+            args = dict(request.args)
+            if 'X-Plex-Token' in args:
+                del args['X-Plex-Token']
+
+            metadataChildrenRequest = requests.get(f"{plex['metadataHost']}library/metadata/{guid}/children", headers=metadataHeaders, params=args)
             print(metadataChildrenRequest)
             # print(metadataChildrenRequest.text)
             if metadataChildrenRequest.status_code == 200:
