@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Type, List
 import requests
 from shared.shared import sonarr, radarr, checkRequiredEnvs
+from shared.requests import retryRequest
 
 def validateSonarrHost():
     url = f"{sonarr['host']}/login"
@@ -40,6 +41,7 @@ def validateRadarrApiKey():
         return False
     
     return True
+
 requiredEnvs = {
     'Sonarr host': (sonarr['host'], validateSonarrHost),
     'Sonarr API key': (sonarr['apiKey'], validateSonarrApiKey, True),
@@ -253,20 +255,20 @@ class Arr(ABC):
         self.historyConstructor = historyConstructor
 
     def get(self, id: int):
-        get = requests.get(f"{self.host}/api/v3/{self.endpoint}/{id}?apiKey={self.apiKey}")
-        return self.constructor(get.json())
+        response = retryRequest(lambda: requests.get(f"{self.host}/api/v3/{self.endpoint}/{id}?apiKey={self.apiKey}"))
+        return self.constructor(response.json())
 
     def getAll(self):
-        get = requests.get(f"{self.host}/api/v3/{self.endpoint}?apiKey={self.apiKey}")
-        return map(self.constructor, get.json())
+        response = retryRequest(lambda: requests.get(f"{self.host}/api/v3/{self.endpoint}?apiKey={self.apiKey}"))
+        return map(self.constructor, response.json())
 
     def put(self, media: Media):
-        put = requests.put(f"{self.host}/api/v3/{self.endpoint}/{media.id}?apiKey={self.apiKey}&moveFiles=true", json=media.json)
+        retryRequest(lambda: requests.put(f"{self.host}/api/v3/{self.endpoint}/{media.id}?apiKey={self.apiKey}&moveFiles=true", json=media.json))
 
     def getFiles(self, media: Media, childId: int=None):
-        get = requests.get(f"{self.host}/api/v3/{self.fileEndpoint}?apiKey={self.apiKey}&{self.endpoint}Id={media.id}")   
+        response = retryRequest(lambda: requests.get(f"{self.host}/api/v3/{self.fileEndpoint}?apiKey={self.apiKey}&{self.endpoint}Id={media.id}"))
 
-        files = map(self.fileConstructor, get.json())
+        files = map(self.fileConstructor, response.json())
 
         if childId != None and childId != media.id:
             files = filter(lambda file: file.parentId == childId, files)
@@ -275,9 +277,9 @@ class Arr(ABC):
 
     def deleteFiles(self, files: List[MediaFile]):
         fileIds = [file.id for file in files]
-        delete = requests.delete(f"{self.host}/api/v3/{self.fileEndpoint}/bulk?apiKey={self.apiKey}", json={f"{self.fileEndpoint}ids": fileIds})
-
-        return delete.json()
+        response = retryRequest(lambda: requests.delete(f"{self.host}/api/v3/{self.fileEndpoint}/bulk?apiKey={self.apiKey}", json={f"{self.fileEndpoint}ids": fileIds}))
+        
+        return response.json()
 
     def getHistory(self, pageSize: int=None, includeGrandchildDetails: bool=False, media: Media=None, childId: int=None):
         endpoint = f"/{self.endpoint}" if media else ''
@@ -285,28 +287,28 @@ class Arr(ABC):
         includeGrandchildDetailsParam = f"include{self.grandchildName}=true&" if includeGrandchildDetails else ''
         idParam = f"{self.endpoint}Id={media.id}&" if media else ''
         childIdParam = f"{self.childIdName}={childId}&" if media and childId != None and childId != media.id else ''
-        historyRequest = requests.get(f"{self.host}/api/v3/history{endpoint}?{pageSizeParam}{includeGrandchildDetailsParam}{idParam}{childIdParam}apiKey={self.apiKey}")
+        response = retryRequest(lambda: requests.get(f"{self.host}/api/v3/history{endpoint}?{pageSizeParam}{includeGrandchildDetailsParam}{idParam}{childIdParam}apiKey={self.apiKey}"))
         
-        history = historyRequest.json()
+        history = response.json()
 
         return map(self.historyConstructor, history['records'] if isinstance(history, dict) else history)
     
     def failHistoryItem(self, historyId: int):
-        failRequest = requests.post(f"{self.host}/api/v3/history/failed/{historyId}?apiKey={self.apiKey}")
+        retryRequest(lambda: requests.post(f"{self.host}/api/v3/history/failed/{historyId}?apiKey={self.apiKey}"))
 
     def refreshMonitoredDownloads(self):
-        commandRequest = requests.post(f"{self.host}/api/v3/command?apiKey={self.apiKey}", json={'name': 'RefreshMonitoredDownloads'}, headers={'Content-Type': 'application/json'})
+        retryRequest(lambda: requests.post(f"{self.host}/api/v3/command?apiKey={self.apiKey}", json={'name': 'RefreshMonitoredDownloads'}, headers={'Content-Type': 'application/json'}))
 
     def interactiveSearch(self, media: Media, childId: int):
-        search = requests.get(f"{self.host}/api/v3/release?apiKey={self.apiKey}&{self.endpoint}Id={media.id}{f'&{self.childIdName}={childId}' if childId != media.id else ''}")
-        return search.json()
+        response = retryRequest(lambda: requests.get(f"{self.host}/api/v3/release?apiKey={self.apiKey}&{self.endpoint}Id={media.id}{f'&{self.childIdName}={childId}' if childId != media.id else ''}"))
+        return response.json()
 
     def automaticSearch(self, media: Media, childId: int):
-        search = requests.post(
+        response = retryRequest(lambda: requests.post(
             f"{self.host}/api/v3/command?apiKey={self.apiKey}", 
             json=self._automaticSearchJson(media, childId), 
-        )
-        return search.json()
+        ))
+        return response.json()
 
     def _automaticSearchJson(self, media: Media, childId: int):
         pass
