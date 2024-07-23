@@ -91,7 +91,11 @@ def requestRatingKey(mediaType, mediaTypeNum, ratingKey, season=None):
             print(ratingKey, 'Not in recentRequests')
             
             user = getUserForPlexServerToken(token)
-            requestItem(user, ratingKey, datetime.now().timestamp(), headers, getSeason=lambda: [int(season)])
+            metadataHeaders = {
+                **plexHeaders,
+                'X-Plex-Token': user['authToken']
+            }
+            requestItem(user, ratingKey, datetime.now().timestamp(), metadataHeaders, getSeason=lambda: [int(season)])
 
             recentlyRequested.append(token)
             cache.set(ratingKey, recentlyRequested)
@@ -181,10 +185,11 @@ def all():
             season = request.args.get('season.index', '1' if mediaType == 'show' else None)
 
             if mediaType != 'episode':
-
+                token = headers.get('X-Plex-Token', request.args.get('X-Plex-Token'))
+                user = getUserForPlexServerToken(token)
                 metadataHeaders = {
                     **plexHeaders,
-                    'X-Plex-Token': headers.get('X-Plex-Token', request.args.get('X-Plex-Token'))
+                    'X-Plex-Token': user['authToken']
                 }
 
                 metadataAllRequest = requests.get(f"{plex['metadataHost']}library/metadata/{guid}", headers=metadataHeaders, params=request.args)
@@ -270,9 +275,11 @@ def children(id):
             existing_seasons = {int(item['index']) for item in mediaContainer.get('Metadata', []) if item['type'] == 'season'}
             highest_season = max(existing_seasons) if existing_seasons else 0
 
+            token = headers.get('X-Plex-Token', request.args.get('X-Plex-Token'))
+            user = getUserForPlexServerToken(token)
             metadataHeaders = {
                 **plexHeaders,
-                'X-Plex-Token': headers.get('X-Plex-Token', request.args.get('X-Plex-Token'))
+                'X-Plex-Token': user['authToken']
             }
 
             metadataChildrenRequest = requests.get(f"{plex['metadataHost']}library/metadata/{guid}/children", headers=metadataHeaders, params=request.args)
