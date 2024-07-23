@@ -163,8 +163,6 @@ services:
       - 8010:8000
     env_file:
       - .env
-    # environment:
-    #   - SERVER_DOMAIN=${SERVER_DOMAIN}:8010
     restart: unless-stopped
     profiles: [plex_authentication, watchlist, plex_request, all]
 

@@ -2,12 +2,10 @@ import requests
 import json
 import urllib.parse
 from flask import Flask, jsonify, redirect, url_for
-from shared.shared import server, watchlist, plexHeaders, tokensFilename
+from shared.shared import watchlist, plexHeaders, tokensFilename
 from shared.overseerr import getUserForPlexToken
 from shared.plex import getServerToken
 from werkzeug.middleware.proxy_fix import ProxyFix
-
-host = server['host']
 
 # instantiate the app
 app = Flask(__name__)

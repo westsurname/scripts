@@ -26,7 +26,7 @@
     ```
 4. Copy `.env.template` to `.env` and populate the (applicable) variables:
 
-   - **Server** - Plex Authentication:
+   - **Server**:
      - `SERVER_DOMAIN`: The domain name of your server.
 
    - **Plex** - Watchlist, Plex Authentication, Plex Request, Plex Refresh:
