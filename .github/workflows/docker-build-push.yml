@@ -27,6 +27,8 @@ jobs:
             image: ghcr.io/${{ github.repository }}/plex_request
           - dockerfile: ./Dockerfile.scripts
             image: ghcr.io/${{ github.repository }}/scripts
+          - dockerfile: ./Dockerfile.plex_request_nginx
+            image: ghcr.io/${{ github.repository }}/plex_request_nginx
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

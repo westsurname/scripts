@@ -140,6 +140,7 @@ def requestRatingKey(mediaType, mediaTypeNum, ratingKey, season=None):
         #     return response
         
         # response = jsonify(json.loads(blankMediaContainer))
+        response = Response('', status=204)
         response.headers.add('Access-Control-Allow-Origin', 'https://app.plex.tv')
 
         return response

@@ -1,0 +1,19 @@
+FROM nginx:alpine
+
+# Metadata labels
+LABEL org.opencontainers.image.source="https://github.com/westsurname/scripts"
+LABEL org.opencontainers.image.description="Docker image for the plex_request_nginx service"
+
+COPY plex_request_nginx_variables.conf /etc/nginx/templates/10-variables.conf.template
+COPY plex_request_nginx.conf /etc/nginx/conf.d/default.conf
+
+RUN if [ -n "$PLEX_REQUEST_SSL_PATH" ]; then \
+        sed -i '/# SSL_DISABLED_BEGIN/,/# SSL_DISABLED_END/d' /etc/nginx/conf.d/default.conf; \
+    else \
+        sed -i '/# SSL_ENABLED_BEGIN/,/# SSL_ENABLED_END/d' /etc/nginx/conf.d/default.conf; \
+    fi
+
+# Expose port 8000 to the outside world
+EXPOSE 8000
+
+CMD ["nginx", "-g", "daemon off;"]

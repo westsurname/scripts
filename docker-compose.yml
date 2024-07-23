@@ -160,13 +160,11 @@ services:
     volumes:
       - ./shared/tokens.json:/app/shared/tokens.json
     ports:
-      - 8000:8000
+      - 8010:8000
     env_file:
       - .env
-    environment:
-      - SERVER_DOMAIN=${SERVER_DOMAIN}:8000
     restart: unless-stopped
-    profiles: [plex_authentication, all]
+    profiles: [plex_authentication, watchlist, plex_request, all]
 
   plex_request:
     build: 
@@ -178,11 +176,29 @@ services:
     volumes:
       - ./shared/tokens.json:/app/shared/tokens.json
     ports:
-      - 8001:8000
+      - 8011:8000
     env_file:
       - .env
     restart: unless-stopped
     profiles: [plex_request, all]
+
+  plex_request_nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.plex_request_nginx
+    container_name: plex_request_nginx_service
+    image: ghcr.io/westsurname/scripts/plex_request_nginx:latest
+    pull_policy: always
+    volumes:
+      - ${PLEX_REQUEST_SSL_PATH:-/dev/null}:${PLEX_REQUEST_SSL_PATH:-/dev/null}:ro
+    ports:
+      - 8012:8000
+    env_file:
+      - .env
+    restart: unless-stopped
+    profiles: [plex_request, all]
+    depends_on:
+      - plex_request
 
 networks:
   default:
