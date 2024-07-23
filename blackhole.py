@@ -6,6 +6,7 @@ import sys
 import re
 import requests
 import asyncio
+import uuid
 from datetime import datetime
 # import urllib
 from shared.discord import discordError, discordUpdate
@@ -47,11 +48,12 @@ class TorrentFileInfo():
     def __init__(self, filename, isRadarr) -> None:
         print('filename:', filename)
         baseBath = getPath(isRadarr)
+        uniqueId = str(uuid.uuid4())[:8]  # Generate a unique identifier
         isDotTorrentFile = filename.casefold().endswith('.torrent')
         isTorrentOrMagnet = isDotTorrentFile or filename.casefold().endswith('.magnet')
-        filenameWithoutExt, _ = os.path.splitext(filename)
+        filenameWithoutExt, ext = os.path.splitext(filename)
         filePath = os.path.join(baseBath, filename)
-        filePathProcessing = os.path.join(baseBath, 'processing', filename)
+        filePathProcessing = os.path.join(baseBath, 'processing', f"{filenameWithoutExt}_{uniqueId}{ext}")
         folderPathCompleted = os.path.join(baseBath, 'completed', filenameWithoutExt)
         
         self.fileInfo = self.FileInfo(filename, filenameWithoutExt, filePath, filePathProcessing, folderPathCompleted)
@@ -287,14 +289,13 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
             if torbox['enabled']:
                 torrentConstructors.append(TorboxTorrent if file.torrentInfo.isDotTorrentFile else TorboxMagnet)
 
-            onlyLargestFile = isRadarr or bool(re.search(r'S[\d]{2}E[\d]{2}', file.fileInfo.filename))
+            onlyLargestFile = isRadarr or bool(re.search(r'S[\d]{2}E[\d]{2}(?![\W_][\d]{2}[\W_])', file.fileInfo.filename))
             if not blackhole['failIfNotCached']:
                 torrents = [constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile) for constructor in torrentConstructors]
                 results = await asyncio.gather(*(processTorrent(torrent, file, arr) for torrent in torrents))
                 
                 if not any(results):
-                    for torrent in torrents:
-                        fail(torrent, arr)
+                    await asyncio.gather(*(fail(torrent, arr) for torrent in torrents))
             else:
                 for i, constructor in enumerate(torrentConstructors):
                     isLast = (i == len(torrentConstructors) - 1)
@@ -303,7 +304,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                     if await processTorrent(torrent, file, arr):
                         break
                     elif isLast:
-                        fail(torrent, arr)
+                        await fail(torrent, arr)
 
             os.remove(file.fileInfo.filePathProcessing)
     except:
@@ -314,7 +315,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
 
         discordError(f"Error processing {file.fileInfo.filenameWithoutExt}", e)
 
-def fail(torrent: TorrentBase, arr: Arr):
+async def fail(torrent: TorrentBase, arr: Arr):
     _print = globals()['print']
 
     def print(*values: object):
@@ -323,15 +324,16 @@ def fail(torrent: TorrentBase, arr: Arr):
     print(f"Failing")
     
     torrentHash = torrent.getHash()
-    history = arr.getHistory(blackhole['historyPageSize'])
+    history = await asyncio.to_thread(arr.getHistory, blackhole['historyPageSize'])
     items = [item for item in history if (item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold()) or cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
     if not items:
         message = "No history items found to mark as failed. Arr will not attempt to grab an alternative."
         print(message)
         discordError(message, torrent.file.fileInfo.filenameWithoutExt)
-    for item in items:
+    else:
         # TODO: See if we can fail without blacklisting as cached items constantly changes
-        arr.failHistoryItem(item.id)
+        failTasks = [asyncio.to_thread(arr.failHistoryItem, item.id) for item in items]
+        await asyncio.gather(*failTasks)
     print(f"Failed")
     
 def getFiles(isRadarr):
