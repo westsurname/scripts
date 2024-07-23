@@ -91,10 +91,10 @@ def main():
                     if args.dry_run or args.no_confirm or input("Do you want to delete and re-grab? (y/n): ").lower() == 'y':
                         if not args.dry_run:
                             discordUpdate(f"[{args.mode}] Repairing {media.title}: {childId}")
-                        print("Deleting files:")
-                        [print(item.path) for item in childItems]
-                        if not args.dry_run:
-                            results = arr.deleteFiles(childItems)
+                            print("Deleting files:")
+                            if args.mode == 'symlink':
+                                [print(item.path) for item in childItems]
+                                results = arr.deleteFiles(childItems)
                             print("Re-monitoring")
                             media = arr.get(media.id)
                             media.setChildMonitored(childId, False)
