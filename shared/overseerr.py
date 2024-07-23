@@ -22,14 +22,14 @@ def getUserForPlexServerToken(serverToken):
 
         return getUserForPlexToken(token)
 
-def requestItem(user, ratingKey, watchlistedAtTimestamp, headers, getSeason):
+def requestItem(user, ratingKey, watchlistedAtTimestamp, metadataHeaders, getSeason):
     try:
         userId = user['id']
         username = user['displayName']
 
         watchlistedAt = datetime.datetime.fromtimestamp(watchlistedAtTimestamp)
 
-        metadataRequest = requests.get(f"{metadataHost}library/metadata/{ratingKey}", headers=headers)
+        metadataRequest = requests.get(f"{metadataHost}library/metadata/{ratingKey}", headers=metadataHeaders)
         metadata = next(iter(metadataRequest.json()['MediaContainer']['Metadata']), None)
 
         if not metadata:
