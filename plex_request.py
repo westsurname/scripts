@@ -10,6 +10,7 @@ from flask_caching import Cache
 from shared.discord import discordError, discordUpdate
 from shared.shared import plex, plexHeaders, pathToScript
 from shared.overseerr import requestItem, getUserForPlexServerToken
+from werkzeug.routing import BaseConverter, ValidationError
 
 mediaTypeNums = {
     "movie": "1",
@@ -18,10 +19,22 @@ mediaTypeNums = {
     "episode": "4"
 }
 
+class MetadataRatingKeyConverter(BaseConverter):
+    regex = '[0-9a-fA-F]{24}'
+
+    def to_python(self, value):
+        if re.match(self.regex, value):
+            return value
+        raise ValidationError()
+
+    def to_url(self, value):
+        return value
+
 # Instantiate the app
 app = Flask(__name__)
 app.config.from_object(__name__)
 app.url_map.strict_slashes = False
+app.url_map.converters['metadataRatingKey'] = MetadataRatingKeyConverter
 
 # Setup caching
 cacheDir = os.path.join(pathToScript, "../cache")
