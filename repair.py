@@ -57,7 +57,7 @@ def main():
     print("Collecting media...")
     sonarr = Sonarr()
     radarr = Radarr()
-    sonarrMedia = [(sonarr, media) for media in sonarr.getAll() if args.mode == 'file' or media.anyMonitoredChildren]
+    sonarrMedia = [(sonarr, media) for media in sonarr.getAll() if args.include_unmonitored or media.anyMonitoredChildren]
     radarrMedia = [(radarr, media) for media in radarr.getAll() if args.include_unmonitored or media.anyMonitoredChildren]
     print("Finished collecting media.")
     
@@ -91,8 +91,8 @@ def main():
                     if args.dry_run or args.no_confirm or input("Do you want to delete and re-grab? (y/n): ").lower() == 'y':
                         if not args.dry_run:
                             discordUpdate(f"[{args.mode}] Repairing {media.title}: {childId}")
-                            print("Deleting files:")
                             if args.mode == 'symlink':
+                                print("Deleting files:")
                                 [print(item.path) for item in childItems]
                                 results = arr.deleteFiles(childItems)
                             print("Re-monitoring")
