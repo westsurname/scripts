@@ -91,7 +91,11 @@ def requestRatingKey(mediaType, mediaTypeNum, ratingKey, season=None):
             print(ratingKey, 'Not in recentRequests')
             
             user = getUserForPlexServerToken(token)
-            requestItem(user, ratingKey, datetime.now().timestamp(), headers, getSeason=lambda: [int(season)])
+            metadataHeaders = {
+                **plexHeaders,
+                'X-Plex-Token': plex['serverApiKey']
+            }
+            requestItem(user, ratingKey, datetime.now().timestamp(), metadataHeaders, getSeason=lambda: [int(season)])
 
             recentlyRequested.append(token)
             cache.set(ratingKey, recentlyRequested)
@@ -140,6 +144,7 @@ def requestRatingKey(mediaType, mediaTypeNum, ratingKey, season=None):
         #     return response
         
         # response = jsonify(json.loads(blankMediaContainer))
+        response = Response('', status=204)
         response.headers.add('Access-Control-Allow-Origin', 'https://app.plex.tv')
 
         return response
@@ -180,16 +185,19 @@ def all():
             season = request.args.get('season.index', '1' if mediaType == 'show' else None)
 
             if mediaType != 'episode':
-
                 metadataHeaders = {
                     **plexHeaders,
-                    'X-Plex-Token': headers.get('X-Plex-Token', request.args.get('X-Plex-Token'))
+                    'X-Plex-Token': plex['serverApiKey']
                 }
 
-                metadataAllRequest = requests.get(f"{plex['metadataHost']}library/metadata/{guid}", headers=metadataHeaders, params=request.args)
+                args = dict(request.args)
+                if 'X-Plex-Token' in args:
+                    del args['X-Plex-Token']
+
+                metadataAllRequest = requests.get(f"{plex['metadataHost']}library/metadata/{guid}", headers=metadataHeaders, params=args)
                 # print(f"{plex['metadataHost']}library/metadata/{guid}")
                 # print(metadataHeaders)
-                # print(request.args)
+                # print(args)
                 print(metadataAllRequest)
                 # print(metadataAllRequest.text)
                 if metadataAllRequest.status_code == 200:
@@ -271,10 +279,14 @@ def children(id):
 
             metadataHeaders = {
                 **plexHeaders,
-                'X-Plex-Token': headers.get('X-Plex-Token', request.args.get('X-Plex-Token'))
+                'X-Plex-Token': plex['serverApiKey']
             }
 
-            metadataChildrenRequest = requests.get(f"{plex['metadataHost']}library/metadata/{guid}/children", headers=metadataHeaders, params=request.args)
+            args = dict(request.args)
+            if 'X-Plex-Token' in args:
+                del args['X-Plex-Token']
+
+            metadataChildrenRequest = requests.get(f"{plex['metadataHost']}library/metadata/{guid}/children", headers=metadataHeaders, params=args)
             print(metadataChildrenRequest)
             # print(metadataChildrenRequest.text)
             if metadataChildrenRequest.status_code == 200:

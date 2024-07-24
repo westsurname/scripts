@@ -2,18 +2,14 @@ import requests
 import json
 import urllib.parse
 from flask import Flask, jsonify, redirect, url_for
-from shared.shared import server, watchlist, plexHeaders, tokensFilename
+from shared.shared import watchlist, plexHeaders, tokensFilename
 from shared.overseerr import getUserForPlexToken
 from shared.plex import getServerToken
-from werkzeug.serving import run_simple
-from werkzeug.middleware.dispatcher import DispatcherMiddleware
-
-host = server['host']
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # instantiate the app
 app = Flask(__name__)
 app.config.from_object(__name__)
-app.config['SERVER_NAME'] = f"{host}"
 
 
 @app.route('/', methods=['GET'])
@@ -42,9 +38,13 @@ def setupComplete(pin):
 
             with open(tokensFilename, 'r+') as tokensFile:
                 tokens = json.load(tokensFile)
-                token = tokens.get(user['id'], { 'etag': '' })
+                token = tokens.get(userId, { 'etag': '' })
                 token['token'] = authToken
                 token['serverToken'] = serverToken
+
+                if serverToken == authToken:
+                    token['owner'] = True
+
                 tokens[userId] = token
                 tokensFile.seek(0)
                 json.dump(tokens, tokensFile)
@@ -54,7 +54,7 @@ def setupComplete(pin):
 
     return jsonify('There was an error, please try again.')
 
-# app.wsgi_app = DispatcherMiddleware(run_simple, {'/plexAuthentication': app.wsgi_app})
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
     
 if __name__ == '__main__':
     app.run('127.0.0.1', 12598)
