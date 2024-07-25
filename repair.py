@@ -1,6 +1,7 @@
 import os
 import argparse
 import time
+import traceback
 import shared.debrid # Run validation
 from shared.arr import Sonarr, Radarr
 from shared.discord import discordUpdate, discordError
@@ -119,9 +120,11 @@ def main():
                         print("Inconsistent folders:")
                         [print(parentFolder) for parentFolder in parentFolders]
                         print()
-        except Exception as e:
-            print(f"An error occurred while processing {media.title}: {str(e)}")
-            discordError(f"[{args.mode}] An error occurred while processing {media.title}", str(e))
+        except Exception:
+            e = traceback.format_exc()
+
+            print(f"An error occurred while processing {media.title}: {e}")
+            discordError(f"[{args.mode}] An error occurred while processing {media.title}", e)
 
     print("Repair complete")
     discordUpdate(f"[{args.mode}] Repair complete")
@@ -131,9 +134,11 @@ if runIntervalSeconds > 0:
         try:
             main()
             time.sleep(runIntervalSeconds)
-        except Exception as e:
-            print(f"An error occurred in the main loop: {str(e)}")
-            discordError(f"[{args.mode}] An error occurred in the main loop", str(e))
+        except Exception:
+            e = traceback.format_exc()
+
+            print(f"An error occurred in the main loop: {e}")
+            discordError(f"[{args.mode}] An error occurred in the main loop", e)
             time.sleep(runIntervalSeconds)  # Still wait before retrying
 else:
     main()
