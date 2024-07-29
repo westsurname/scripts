@@ -197,11 +197,9 @@ def run():
             user = getUserForPlexToken(token['token'])
             
             # Use the userId from the tokens dictionary, which we know exists
-            user_id = userId
             username = user.get('displayName', 'Unknown')
 
-            print(f"Requesting new items for userId {user_id} - {username}")
-
+        
             if not recentWatchlist:
                 print("No new items were found")
 
