@@ -209,7 +209,7 @@ def run():
                 requestItem(user, ratingKey, watchlistedAt, headers, getSeason=lambda: getCurrentSeason(ratingKey, headers, token))
 
         except Exception as e:
-            error_message = f"Error processing requests for userId {userId} with token {token['token']}"
+            error_message = f"Error processing requests for userId {userId}"
             print(error_message)
             print(traceback.format_exc())
             discordError(error_message, str(e))
