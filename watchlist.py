@@ -22,69 +22,52 @@ class SeasonMetadata:
 
 
 def getSeasonsMetadata(ratingKey, headers) -> List[SeasonMetadata]:
-    # excludeAllLeaves=1?
     seasonsMetadataRequest = requests.get(f"{metadataHost}library/metadata/{ratingKey}/children?excludeAllLeaves=1&includeUserState=1", headers=headers)
     seasonsMetadata = seasonsMetadataRequest.json()['MediaContainer']['Metadata']
-
     return list(map(SeasonMetadata, seasonsMetadata))
 
 
 def getServerSeasonsMetadata(ratingKey, headers, owner) -> List[SeasonMetadata]:
     headers = getServerHeaders(headers, owner)
-
     serverMetadataInfoRequest = requests.get(f"{serverHost}/library/all?type=2&guid=plex%3A%2F%2Fshow%2F{ratingKey}", headers=headers)
     serverMetadataInfo = serverMetadataInfoRequest.json()['MediaContainer']
-
     if 'Metadata' in serverMetadataInfo:
         serverMetadata = serverMetadataInfo['Metadata']
         showServerMetadata = next(iter(serverMetadata), None)
-
         if showServerMetadata:
             serverRatingKey = showServerMetadata['ratingKey']
             serverSeasonsMetadataRequest = requests.get(f"{serverHost}/library/metadata/{serverRatingKey}/children", headers=headers)
             serverSeasonsMetadata = serverSeasonsMetadataRequest.json()['MediaContainer']['Metadata']
-
             return list(map(SeasonMetadata, serverSeasonsMetadata))
-
     return
 
 
 def getCombinedSeasonsMetadata(ratingKey, headers, owner) -> List[SeasonMetadata]:
     seasonsMetadata = getSeasonsMetadata(ratingKey, headers)
     serverSeasonsMetadata = getServerSeasonsMetadata(ratingKey, headers, owner)
-
     if not serverSeasonsMetadata: return seasonsMetadata
-
     combinedSeasonsMetadata = []
-
     for seasonMetadata in seasonsMetadata:
         serverSeasonMetadata = next(iter(serverSeasonMetadata for serverSeasonMetadata in serverSeasonsMetadata if serverSeasonMetadata.index == seasonMetadata.index), None)
-
         combinedSeasonMetadata = combineSeasonMetadata(seasonMetadata, serverSeasonMetadata)
         combinedSeasonsMetadata.append(combinedSeasonMetadata)
-
     return combinedSeasonsMetadata
 
 
 def combineSeasonMetadata(seasonMetadata: SeasonMetadata, serverSeasonMetadata: SeasonMetadata) -> SeasonMetadata:
     if serverSeasonMetadata and serverSeasonMetadata.viewedLeafCount > seasonMetadata.viewedLeafCount:
         seasonMetadata.viewedLeafCount = serverSeasonMetadata.viewedLeafCount
-
     return seasonMetadata
 
 
 def getServerHeaders(headers, owner):
     if owner: return headers
-
     usersRequest = requests.get(f"{host}api/users", headers=headers)
     users = ET.fromstring(usersRequest.content)
-
     servers = (server.attrib for user in users for server in user)
     serverId = next(server['id'] for server in servers if server['machineIdentifier'] == serverMachineId)
-
     serverRequest = requests.get(f"{host}api/servers/{serverMachineId}/shared_servers/{serverId}", headers=headers)
     serverToken = ET.fromstring(serverRequest.content)[0].attrib['accessToken']
-
     return {
         **headers,
         'X-Plex-Token': serverToken
@@ -97,10 +80,7 @@ def buildRecentItem(item):
 
 def getCurrentSeason(ratingKey, headers, token):
     season = [1]
-
     seasonsMetadata = getCombinedSeasonsMetadata(ratingKey, headers, token.get('owner', False))
-
-    # Consider logic for choosing the season
     for seasonMetadata in reversed(seasonsMetadata):
         totalCount = seasonMetadata.leafCount
         remainingCount = totalCount - seasonMetadata.viewedLeafCount
@@ -110,18 +90,15 @@ def getCurrentSeason(ratingKey, headers, token):
         elif remainingCount < totalCount:
             season = [seasonMetadata.index]
             break
-
     return season
 
 
 def getWatchlistedAt(ratingKey, headers):
     request = requests.get(f"{metadataHost}library/metadata/{ratingKey}/userState", headers=headers)
-
     if request.status_code != 200: return
-    
     watchlistedAt = request.json()['MediaContainer']['UserState']['watchlistedAt']
-    
     return watchlistedAt
+
 
 def run():
     print()
@@ -218,10 +195,12 @@ def run():
                 tokensFile.truncate()
 
             user = getUserForPlexToken(token['token'])
-            userId = user['id']
-            username = user['displayName']
+            
+            # Use the userId from the tokens dictionary, which we know exists
+            user_id = userId
+            username = user.get('displayName', 'Unknown')
 
-            print(f"Requesting new items for userId {userId} - {username}")
+            print(f"Requesting new items for userId {user_id} - {username}")
 
             if not recentWatchlist:
                 print("No new items were found")
@@ -231,13 +210,11 @@ def run():
                 watchlistedAt = item['watchlistedAt']
                 requestItem(user, ratingKey, watchlistedAt, headers, getSeason=lambda: getCurrentSeason(ratingKey, headers, token))
 
-        except:
-            e = traceback.format_exc()
-
-            print(f"Error processing requests for userId {userId}")
-            print(e)
-
-            discordError(f"Error processing requests for userId {userId}", e)
+        except Exception as e:
+            error_message = f"Error processing requests for userId {userId} with token {token['token']}"
+            print(error_message)
+            print(traceback.format_exc())
+            discordError(error_message, str(e))
 
 if __name__ == "__main__":
     run()
