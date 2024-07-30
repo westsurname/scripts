@@ -73,7 +73,7 @@ def main():
             mount_torrents_path = realdebrid['mountTorrentsPath']
             if not os.path.exists(mount_torrents_path):
                 print(f"Path to mounted torrents does not exist: {mount_torrents_path}")
-                discordError(f"[{args.mode}] An error occurred while processing {media.title}: Path to mounted torrents does not exist: {mount_torrents_path}", e)
+                discordError(f"[{args.mode}] An error occurred while processing {media.title}: Path to mounted torrents does not exist", mount_torrents_path)
                 break
             # use a custom shell command or just count the subfolders within the mount to make sure the count is >0
             safety_check_command = os.getenv('MOUNT_SAFETY_CHECK_COMMAND', f'[ $(find {mount_torrents_path} -mindepth 1 -maxdepth 1 -type d | wc -l) -gt 0 ] && echo "true" || echo "false"')
@@ -84,7 +84,7 @@ def main():
 
                 if safety_check_failed:
                     print(f"Safety check failed: couldn't verify torrent folder is mounted: {mount_torrents_path}")
-                    discordError(f"[{args.mode}] An error occurred while processing {media.title}: Safety check failed: couldn't verify torrent folder is mounted: {mount_torrents_path}", e)
+                    discordError(f"[{args.mode}] An error occurred while processing {media.title}: Safety check failed: couldn't verify torrent folder is mounted", mount_torrents_path)
                     break
 
             except subprocess.CalledProcessError as e:
