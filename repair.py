@@ -67,6 +67,29 @@ def main():
             getItems = lambda media, childId: arr.getFiles(media=media, childId=childId) if args.mode == 'symlink' else arr.getHistory(media=media, childId=childId, includeGrandchildDetails=True)
             childrenIds = media.childrenIds if args.include_unmonitored else media.monitoredChildrenIds
 
+            # perform a "Safety check" to make sure that the torrents folder is mounted to prevent deleting everything in *arrs
+            # we do this inside of the loop because the mount could drop at any time; so, best to check with each iteration
+            mount_torrents_path = realdebrid['mountTorrentsPath']
+            if not os.path.exists(mount_torrents_path):
+                print(f"Path to mounted torrents does not exist: {mount_torrents_path}")
+                discordError(f"[{args.mode}] An error occurred while processing {media.title}: Path to mounted torrents does not exist: {mount_torrents_path}", e)
+                break
+            # use a custom shell command or just count the subfolders within the mount to make sure the count is >0
+            safety_check_command = os.getenv('MOUNT_SAFETY_CHECK_COMMAND', f'[ $(find {mount_torrents_path} -mindepth 1 -maxdepth 1 -type d | wc -l) -gt 0 ] && echo "true" || echo "false"')
+
+            try:
+                result = subprocess.run(safety_check_command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                safety_check_failed = result.stdout.strip().decode('utf-8') == 'false'
+
+                if safety_check_failed:
+                    print(f"Safety check failed: couldn't verify torrent folder is mounted: {mount_torrents_path}")
+                    discordError(f"[{args.mode}] An error occurred while processing {media.title}: Safety check failed: couldn't verify torrent folder is mounted: {mount_torrents_path}", e)
+                    break
+
+            except subprocess.CalledProcessError as e:
+                print(f"Error running safety check command: {e}")
+                break
+
             for childId in childrenIds:
                 brokenItems = []
                 childItems = list(getItems(media=media, childId=childId))
