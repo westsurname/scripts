@@ -89,7 +89,8 @@ discord = {
 
 repair = {
     'repairInterval': env.string('REPAIR_REPAIR_INTERVAL', default=None),
-    'runInterval': env.string('REPAIR_RUN_INTERVAL', default=None)
+    'runInterval': env.string('REPAIR_RUN_INTERVAL', default=None),
+    'safetyCheckScript': env.string('SAFETY_CHECK_SCRIPT', default="len([name for name in os.listdir(mountTorrentsPath) if os.path.isdir(os.path.join(mountTorrentsPath, name))]) > 0")
 }
 
 plexHeaders = {

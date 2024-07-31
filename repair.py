@@ -31,6 +31,7 @@ parser.add_argument('--repair-interval', type=str, default=repair['repairInterva
 parser.add_argument('--run-interval', type=str, default=repair['runInterval'], help='Optional interval in smart format (e.g. 1w2d3h4m5s) to run the repair process.')
 parser.add_argument('--mode', type=str, choices=['symlink', 'file'], default='symlink', help='Choose repair mode: `symlink` or `file`. `symlink` to repair broken symlinks and `file` to repair missing files.')
 parser.add_argument('--include-unmonitored', action='store_true', help='Include unmonitored media in the repair process')
+parser.add_argument('--safety-check-script', type=str, default=repair['safetyCheckScript'], help='Python code to be evaluated and return boolean for whether torrent mount is working or not. mountTorrentsPath will be replaced by Realdebrid/Torbox mount path.')
 args = parser.parse_args()
 
 _print = print
@@ -58,9 +59,9 @@ except Exception as e:
 def safety_check(mountTorrentsPath):
     try:
         # Default script to check if the number of directories is greater than zero
-        default_script = "len([name for name in os.listdir(mountTorrentsPath) if os.path.isdir(os.path.join(mountTorrentsPath, name))]) > 0"
-        safety_check_script = os.getenv('SAFETY_CHECK_SCRIPT', default_script)
-        safety_check_passed = eval(safety_check_script, {"os": os, "mountTorrentsPath": mountTorrentsPath})
+        #default_script = "len([name for name in os.listdir(mountTorrentsPath) if os.path.isdir(os.path.join(mountTorrentsPath, name))]) > 0"
+        #safety_check_script = os.getenv('SAFETY_CHECK_SCRIPT', default_script)
+        safety_check_passed = eval(args.safety_check_script, {"os": os, "mountTorrentsPath": mountTorrentsPath})
         return safety_check_passed
     except Exception as e:
         print(f"Error checking torrent mount or evaluating safety check script: {safety_check_script}  exception: {e}")
