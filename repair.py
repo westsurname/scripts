@@ -58,13 +58,10 @@ except Exception as e:
 
 def safety_check(mountTorrentsPath):
     try:
-        # Default script to check if the number of directories is greater than zero
-        #default_script = "len([name for name in os.listdir(mountTorrentsPath) if os.path.isdir(os.path.join(mountTorrentsPath, name))]) > 0"
-        #safety_check_script = os.getenv('SAFETY_CHECK_SCRIPT', default_script)
         safety_check_passed = eval(args.safety_check_script, {"os": os, "mountTorrentsPath": mountTorrentsPath})
         return safety_check_passed
     except Exception as e:
-        print(f"Error checking torrent mount or evaluating safety check script: {safety_check_script}  exception: {e}")
+        print(f"Error checking torrent mount or evaluating safety check script [{safety_check_script}] for mount path [{mountTorrentsPath}] : exception: {e}")
         return False
 
 def main():
