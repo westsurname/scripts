@@ -55,6 +55,15 @@ except Exception as e:
     print(f"Invalid interval format for run interval: {args.run_interval}")
     exit(1)
 
+def safety_check(mount_torrents_path):
+    try:
+        folder_count = len([name for name in os.listdir(mount_torrents_path) if os.path.isdir(os.path.join(mount_torrents_path, name))])
+        return folder_count > 0
+
+    except Exception as e:
+        print(f"Error checking torrent mount path: {e}")
+        return False
+
 def main():
     print("Collecting media...")
     sonarr = Sonarr()
@@ -70,26 +79,12 @@ def main():
 
             # perform a "Safety check" to make sure that the torrents folder is mounted to prevent deleting everything in *arrs
             # we do this inside of the loop because the mount could drop at any time; so, best to check with each iteration
-            mount_torrents_path = realdebrid['mountTorrentsPath']
-            if not os.path.exists(mount_torrents_path):
-                print(f"Path to mounted torrents does not exist: {mount_torrents_path}")
-                discordError(f"[{args.mode}] An error occurred while processing {media.title}: Path to mounted torrents does not exist", mount_torrents_path)
-                break
-            # use a custom shell command or just count the subfolders within the mount to make sure the count is >0
-            safety_check_command = os.getenv('MOUNT_SAFETY_CHECK_COMMAND', f'[ $(find {mount_torrents_path} -mindepth 1 -maxdepth 1 -type d | wc -l) -gt 0 ] && echo "true" || echo "false"')
-
-            try:
-                result = subprocess.run(safety_check_command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                safety_check_failed = result.stdout.strip().decode('utf-8') == 'false'
-
-                if safety_check_failed:
-                    print(f"Safety check failed: couldn't verify torrent folder is mounted: {mount_torrents_path}")
-                    discordError(f"[{args.mode}] An error occurred while processing {media.title}: Safety check failed: couldn't verify torrent folder is mounted", mount_torrents_path)
-                    break
-
-            except subprocess.CalledProcessError as e:
-                print(f"Error running safety check command: {e}")
-                break
+            if not safety_check(realdebrid['mountTorrentsPath']):
+                print(f"Safety check failed: couldn't verify torrent folder is mounted: {realdebrid['mountTorrentsPath']}")
+                discordError(f"[{args.mode}] An error occurred while processing {media.title}: Safety check failed: couldn't verify torrent folder is mounted", realdebrid['mountTorrentsPath'])
+                if repairIntervalSeconds > 0:
+                    time.sleep(repairIntervalSeconds)
+                continue
 
             for childId in childrenIds:
                 brokenItems = []
