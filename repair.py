@@ -55,15 +55,15 @@ except Exception as e:
     print(f"Invalid interval format for run interval: {args.run_interval}")
     exit(1)
 
-def safety_check(mount_torrents_path):
+def safety_check(mountTorrentsPath):
     try:
         # Default script to check if the number of directories is greater than zero
-        default_script = "len([name for name in os.listdir(mount_torrents_path) if os.path.isdir(os.path.join(mount_torrents_path, name))]) > 0"
+        default_script = "len([name for name in os.listdir(mountTorrentsPath) if os.path.isdir(os.path.join(mountTorrentsPath, name))]) > 0"
         safety_check_script = os.getenv('SAFETY_CHECK_SCRIPT', default_script)
-        safety_check_passed = eval(safety_check_script)
+        safety_check_passed = eval(safety_check_script, {"os": os, "mountTorrentsPath": mountTorrentsPath})
         return safety_check_passed
     except Exception as e:
-        print(f"Error checking torrent mount or evaluating safety check script: {e}")
+        print(f"Error checking torrent mount or evaluating safety check script: {safety_check_script}  exception: {e}")
         return False
 
 def main():
@@ -81,9 +81,9 @@ def main():
 
             # perform a "Safety check" to make sure that the torrents folder is mounted to prevent deleting everything in *arrs
             # we do this inside of the loop because the mount could drop at any time; so, best to check with each iteration
-            if not safety_check(realdebrid['mountTorrentsPath']):
-                print(f"Safety check failed: couldn't verify torrent folder is mounted: {realdebrid['mountTorrentsPath']}")
-                discordError(f"[{args.mode}] An error occurred while processing {media.title}: Safety check failed: couldn't verify torrent folder is mounted", realdebrid['mountTorrentsPath'])
+            if ((realdebrid['enabled'] and not safety_check(realdebrid['mountTorrentsPath'])) or (torbox['enabled'] and not safety_check(torbox['mountTorrentsPath']))):
+                print(f"Safety check failed: couldn't verify torrent folder is mounted")
+                discordError(f"[{args.mode}] An error occurred while processing {media.title}: Safety check failed: couldn't verify torrent folder is mounted")
                 if repairIntervalSeconds > 0:
                     time.sleep(repairIntervalSeconds)
                 continue
