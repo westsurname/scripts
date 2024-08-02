@@ -46,8 +46,8 @@ plex = {
     'serverHost': env.string('PLEX_SERVER_HOST', default=None),
     'serverMachineId': env.string('PLEX_SERVER_MACHINE_ID', default=None),
     'serverApiKey': env.string('PLEX_SERVER_API_KEY', default=None),
-    'serverMovieLibraryId': env.int('PLEX_SERVER_MOVIE_LIBRARY_ID', default=None),
-    'serverTvShowLibraryId': env.int('PLEX_SERVER_TV_SHOW_LIBRARY_ID', default=None)
+    'serverMovieLibraryId': env.integer('PLEX_SERVER_MOVIE_LIBRARY_ID', default=None),
+    'serverTvShowLibraryId': env.integer('PLEX_SERVER_TV_SHOW_LIBRARY_ID', default=None)
 }
 
 overseerr = {

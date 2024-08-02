@@ -18,7 +18,7 @@ def getUserForPlexToken(token):
 def getUserForPlexServerToken(serverToken):
     with open(tokensFilename, 'r') as tokensFile:
         tokens = json.load(tokensFile).values()
-        token = next((token['token'] for token in tokens if token['serverToken'] == serverToken), next(token['token'] for token in tokens if token['owner'] == True))
+        token = next((token['token'] for token in tokens if token['serverToken'] == serverToken), plex['serverApiKey'])
 
         return getUserForPlexToken(token)
 
