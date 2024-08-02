@@ -1,11 +1,13 @@
 import requests
 import json
 import urllib.parse
-from flask import Flask, jsonify, redirect, url_for
+from flask import Flask, jsonify, redirect, url_for, request
 from shared.shared import watchlist, plexHeaders, tokensFilename
 from shared.overseerr import getUserForPlexToken
 from shared.plex import getServerToken
+from werkzeug.serving import run_simple
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
 # instantiate the app
 app = Flask(__name__)
@@ -32,29 +34,47 @@ def setupComplete(pin):
         authToken = pinRequest.json()['authToken']
 
         if authToken:
-            user = getUserForPlexToken(authToken)
-            serverToken = getServerToken(authToken)
-            userId = user['id']
-
-            with open(tokensFilename, 'r+') as tokensFile:
-                tokens = json.load(tokensFile)
-                token = tokens.get(userId, { 'etag': '' })
-                token['token'] = authToken
-                token['serverToken'] = serverToken
-
-                if serverToken == authToken:
-                    token['owner'] = True
-
-                tokens[userId] = token
-                tokensFile.seek(0)
-                json.dump(tokens, tokensFile)
-                tokensFile.truncate()
-
-            return jsonify('Successfully authenticated!')
+            return handleToken(authToken)
 
     return jsonify('There was an error, please try again.')
 
+@app.route('/token', methods=['POST'])
+def receiveToken():
+    token = request.json.get('token')
+    if token:
+        return handleToken(token)
+    else:
+        return createResponse({'error': 'No token provided'}, 400)
+
+def handleToken(token):
+    user = getUserForPlexToken(token)
+    serverToken = getServerToken(token)
+    userId = user['id']
+
+    updateTokensFile(userId, token, serverToken)
+
+    return createResponse({'message': 'Token received and stored successfully'}, 201)
+
+def updateTokensFile(userId, token, serverToken):
+    with open(tokensFilename, 'r+') as tokensFile:
+        tokens = json.load(tokensFile)
+        tokenEntry = tokens.get(userId, {'etag': ''})
+        tokenEntry['token'] = token
+        tokenEntry['serverToken'] = serverToken
+        tokens[userId] = tokenEntry
+        tokensFile.seek(0)
+        json.dump(tokens, tokensFile)
+        tokensFile.truncate()
+
+def createResponse(data, statusCode):
+    response = jsonify(data), statusCode
+    # response[0].headers.add('Access-Control-Allow-Origin', '*')
+    # response[0].headers.add('Access-Control-Allow-Headers', 'Content-Type')
+    # response[0].headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+    return response
+
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
-    
+app.wsgi_app = DispatcherMiddleware(run_simple, {'/auth': app.wsgi_app})
+
 if __name__ == '__main__':
     app.run('127.0.0.1', 12598)

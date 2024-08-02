@@ -7,11 +7,18 @@ env.read_env()
 
 default_pattern = r"<[a-z0-9_]+>"
 
-@env.parser_for("string")
-def stringEnvParser(value):
+def commonEnvParser(value):
     if value is not None and re.match(default_pattern, value):
         return None
     return value
+
+@env.parser_for("integer")
+def integerEnvParser(value):
+    return commonEnvParser(value)
+
+@env.parser_for("string")
+def stringEnvParser(value):
+    return commonEnvParser(value)
 
 watchlist = {
     'plexProduct': env.string('WATCHLIST_PLEX_PRODUCT', default=None),
@@ -24,9 +31,9 @@ blackhole = {
     'radarrPath': env.string('BLACKHOLE_RADARR_PATH', default=None),
     'sonarrPath': env.string('BLACKHOLE_SONARR_PATH', default=None),
     'failIfNotCached': env.bool('BLACKHOLE_FAIL_IF_NOT_CACHED', default=None),
-    'rdMountRefreshSeconds': env.int('BLACKHOLE_RD_MOUNT_REFRESH_SECONDS', default=None),
-    'waitForTorrentTimeout': env.int('BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT', default=None),
-    'historyPageSize': env.int('BLACKHOLE_HISTORY_PAGE_SIZE', default=None),
+    'rdMountRefreshSeconds': env.integer('BLACKHOLE_RD_MOUNT_REFRESH_SECONDS', default=None),
+    'waitForTorrentTimeout': env.integer('BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT', default=None),
+    'historyPageSize': env.integer('BLACKHOLE_HISTORY_PAGE_SIZE', default=None),
 }
 
 server = {
