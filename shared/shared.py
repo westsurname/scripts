@@ -7,14 +7,14 @@ env.read_env()
 
 default_pattern = r"<[a-z0-9_]+>"
 
-def commonEnvParser(value):
+def commonEnvParser(value, convert):
     if value is not None and re.match(default_pattern, value):
         return None
-    return value
+    return convert(value) if convert else value
 
 @env.parser_for("integer")
 def integerEnvParser(value):
-    return commonEnvParser(value)
+    return commonEnvParser(value, int)
 
 @env.parser_for("string")
 def stringEnvParser(value):
