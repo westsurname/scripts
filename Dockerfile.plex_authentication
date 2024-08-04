@@ -19,8 +19,5 @@ RUN grep -E "#.*($SERVICE_NAME|all)" requirements.txt | awk '{print $0}' > servi
 # Copy the rest of the application
 COPY . .
 
-# Expose port 8000 to the outside world
-EXPOSE 8000
-
-# Run gunicorn on port 8000, add more workers if required
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "plex_authentication_wsgi:app"]
+# Run gunicorn using Unix socket
+CMD ["gunicorn", "--bind", "unix:/app/sockets/plex_authentication.sock", "plex_authentication_wsgi:app"]

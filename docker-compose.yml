@@ -159,8 +159,7 @@ services:
     pull_policy: always
     volumes:
       - ./shared/tokens.json:/app/shared/tokens.json
-    ports:
-      - 8010:8000
+      - ./sockets:/app/sockets
     env_file:
       - .env
     restart: unless-stopped
@@ -175,8 +174,7 @@ services:
     pull_policy: always
     volumes:
       - ./shared/tokens.json:/app/shared/tokens.json
-    ports:
-      - 8011:8000
+      - ./sockets:/app/sockets
     env_file:
       - .env
     restart: unless-stopped
@@ -191,6 +189,7 @@ services:
     pull_policy: always
     volumes:
       - ${PLEX_REQUEST_SSL_PATH:-/dev/null}:${PLEX_REQUEST_SSL_PATH:-/dev/null}:ro
+      - ./sockets:/app/sockets
     ports:
       - 8012:8000
     env_file:
@@ -199,6 +198,7 @@ services:
     profiles: [plex_request, all]
     depends_on:
       - plex_request
+      - plex_authentication
 
 networks:
   default:
