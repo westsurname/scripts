@@ -5,7 +5,6 @@ from flask import Flask, jsonify, redirect, url_for, request
 from shared.shared import watchlist, plexHeaders, tokensFilename
 from shared.overseerr import getUserForPlexToken
 from shared.plex import getServerToken
-from werkzeug.serving import run_simple
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
@@ -68,13 +67,10 @@ def updateTokensFile(userId, token, serverToken):
 
 def createResponse(data, statusCode):
     response = jsonify(data), statusCode
-    # response[0].headers.add('Access-Control-Allow-Origin', '*')
-    # response[0].headers.add('Access-Control-Allow-Headers', 'Content-Type')
-    # response[0].headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
     return response
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
-app.wsgi_app = DispatcherMiddleware(run_simple, {'/auth': app.wsgi_app})
+app.wsgi_app = DispatcherMiddleware(None, {'/auth': app.wsgi_app})
 
 if __name__ == '__main__':
     app.run('127.0.0.1', 12598)
