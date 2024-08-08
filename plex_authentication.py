@@ -11,6 +11,7 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 # instantiate the app
 app = Flask(__name__)
 app.config.from_object(__name__)
+app.url_map.strict_slashes = False
 
 
 @app.route('/', methods=['GET'])
