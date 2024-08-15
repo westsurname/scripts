@@ -7,11 +7,18 @@ env.read_env()
 
 default_pattern = r"<[a-z0-9_]+>"
 
-@env.parser_for("string")
-def stringEnvParser(value):
+def commonEnvParser(value, convert=None):
     if value is not None and re.match(default_pattern, value):
         return None
-    return value
+    return convert(value) if convert else value
+
+@env.parser_for("integer")
+def integerEnvParser(value):
+    return commonEnvParser(value, int)
+
+@env.parser_for("string")
+def stringEnvParser(value):
+    return commonEnvParser(value)
 
 watchlist = {
     'plexProduct': env.string('WATCHLIST_PLEX_PRODUCT', default=None),
@@ -24,9 +31,9 @@ blackhole = {
     'radarrPath': env.string('BLACKHOLE_RADARR_PATH', default=None),
     'sonarrPath': env.string('BLACKHOLE_SONARR_PATH', default=None),
     'failIfNotCached': env.bool('BLACKHOLE_FAIL_IF_NOT_CACHED', default=None),
-    'rdMountRefreshSeconds': env.int('BLACKHOLE_RD_MOUNT_REFRESH_SECONDS', default=None),
-    'waitForTorrentTimeout': env.int('BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT', default=None),
-    'historyPageSize': env.int('BLACKHOLE_HISTORY_PAGE_SIZE', default=None),
+    'rdMountRefreshSeconds': env.integer('BLACKHOLE_RD_MOUNT_REFRESH_SECONDS', default=None),
+    'waitForTorrentTimeout': env.integer('BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT', default=None),
+    'historyPageSize': env.integer('BLACKHOLE_HISTORY_PAGE_SIZE', default=None),
 }
 
 server = {
@@ -39,8 +46,8 @@ plex = {
     'serverHost': env.string('PLEX_SERVER_HOST', default=None),
     'serverMachineId': env.string('PLEX_SERVER_MACHINE_ID', default=None),
     'serverApiKey': env.string('PLEX_SERVER_API_KEY', default=None),
-    'serverMovieLibraryId': env.int('PLEX_SERVER_MOVIE_LIBRARY_ID', default=None),
-    'serverTvShowLibraryId': env.int('PLEX_SERVER_TV_SHOW_LIBRARY_ID', default=None)
+    'serverMovieLibraryId': env.integer('PLEX_SERVER_MOVIE_LIBRARY_ID', default=None),
+    'serverTvShowLibraryId': env.integer('PLEX_SERVER_TV_SHOW_LIBRARY_ID', default=None)
 }
 
 overseerr = {

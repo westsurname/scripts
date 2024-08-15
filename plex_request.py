@@ -258,6 +258,8 @@ def all():
                 urlSuffix = "/children" if mediaTypeNum == mediaTypeNums['season'] else ""
                 metadataAllRequest = requests.get(f"{plex['metadataHost']}library/metadata/{guid}{urlSuffix}", headers=metadataHeaders, params=args)
                 if metadataAllRequest.status_code == 200:
+                    libraryId = plex['serverMovieLibraryId'] if mediaType == 'movie' else plex['serverTvShowLibraryId']
+
                     additionalMetadata = metadataAllRequest.json()['MediaContainer']['Metadata'][0]
                     if mediaTypeNum == mediaTypeNums['season'] or mediaTypeNum == mediaTypeNums['episode']:
                         additionalMetadata['key'] = f"/library/request/{mediaType}/{mediaTypeNum}/{guid}/season/{season}"
@@ -266,8 +268,8 @@ def all():
 
                     additionalMetadata['ratingKey'] = "12065"
                     additionalMetadata['librarySectionTitle'] = "Request Season :" if mediaTypeNum == mediaTypeNums['episode'] else "Request :"
-                    additionalMetadata['librarySectionID'] = plex['serverMovieLibraryId'] if mediaType == 'movie' else plex['serverTvShowLibraryId']
-                    additionalMetadata['librarySectionKey'] = f"/library/sections/{additionalMetadata['librarySectionID']}"
+                    additionalMetadata['librarySectionID'] = libraryId
+                    additionalMetadata['librarySectionKey'] = f"/library/sections/{libraryId}"
                     additionalMetadata['Media'] = [{
                         "videoResolution": "Request Season :" if mediaTypeNum == mediaTypeNums['episode'] else "Request :"
                     }]
