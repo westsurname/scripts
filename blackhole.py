@@ -12,18 +12,15 @@ from datetime import datetime
 # import urllib
 from werkzeug.utils import cached_property
 from abc import ABC, abstractmethod
-from shared.discord import discordError, discordUpdate, discordStatusUpdate
+from shared.discord import discordError, discordUpdate
 from shared.shared import realdebrid, blackhole, plex, mediaExtensions, checkRequiredEnvs
 from shared.arr import Arr, Radarr, Sonarr
 from blackhole_downloader import downloader
 from RTN import parse
-import threading
 
 rdHost = realdebrid['host']
 authToken = realdebrid['apiKey']
 shared_dict = {}
-# lock = threading.Lock()
-webhook = discordStatusUpdate(shared_dict, create=True)
 
 _print = print
 
@@ -133,7 +130,8 @@ class TorrentBase(ABC):
                 return False
 
         availableHost = self.getAvailableHost()
-        self.addTorrent(availableHost)
+        if self.addTorrent(availableHost) is None:
+            return None
         return True
 
     @abstractmethod
@@ -264,8 +262,11 @@ class Torrent(TorrentBase):
         addTorrentResponse = addTorrentRequest.json()
         self.print('torrent info:', addTorrentResponse)
         
-        self.id = addTorrentResponse['id']
-        return self.id
+        if "id" in addTorrentResponse:
+            self.id = addTorrentResponse['id']
+            return self.id
+        else:
+            return None
 
 
 class Magnet(TorrentBase):
@@ -282,9 +283,11 @@ class Magnet(TorrentBase):
         addMagnetResponse = addMagnetRequest.json()
         self.print('magnet info:', addMagnetResponse)
         
-        self.id = addMagnetResponse['id']
-
-        return self.id
+        if "id" in addMagnetResponse:
+            self.id = addMagnetResponse['id']
+            return self.id
+        else:
+            return None
 
 def getPath(isRadarr, create=False):
     baseWatchPath = blackhole['baseWatchPath']
@@ -415,7 +418,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                         os.renames(torrent.file.fileInfo.filePathProcessing, path)
                     elif os.path.exists(file.fileInfo.filePathProcessing):
                         os.remove(file.fileInfo.filePathProcessing)
-                    await downloader(torrent, file, arr, path, shared_dict, lock, webhook)
+                    await downloader(torrent, file, arr, path, shared_dict, lock)
                 elif not first_item:
                     arr.clearBlocklist()
                     os.remove(file.fileInfo.filePathProcessing)
@@ -434,9 +437,10 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
             else:
                 torrent = Magnet(f, file, failIfNotCached, onlyLargestFile)
             
-            if not torrent.submitTorrent():
+            failed = torrent.submitTorrent()
+            if failed is False:
                 historyItems = await fail(torrent, uncached=True)
-            else:
+            elif failed is True:
                 count = 0
                 while True:
                     count += 1
@@ -565,11 +569,10 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                             print(f"infoCount == {blackhole['waitForTorrentTimeout']} - Failing")
                             await fail(torrent)
                             break
-
+            if os.path.exists(file.fileInfo.filePathProcessing):
                 os.remove(file.fileInfo.filePathProcessing)
-                print("FILEPATH REMOVING: ", file.fileInfo.filePath)
-                if os.path.exists(file.fileInfo.filePath):
-                    os.remove(file.fileInfo.filePath)
+            if os.path.exists(file.fileInfo.filePath):
+                os.remove(file.fileInfo.filePath)
     except:
         e = traceback.format_exc()
 
@@ -640,8 +643,8 @@ async def resumeUncached(lock):
         
         for path, arr, isRadarr in paths:
             for root, dirs, _ in os.walk(path):
-                if not dirs:
-                    if os.path.exists(root) and not os.listdir(root):
+                if not dirs and os.path.exists(root):
+                    if not os.listdir(root):
                         os.removedirs(root)
                         continue
                     print(os.listdir(root))

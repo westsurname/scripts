@@ -40,20 +40,23 @@ def discordUpdate(title, message=None):
         )
         response = webhook.execute()
 
-def discordStatusUpdate(torrentDict, webhook=None, create=False, edit=False, delete=False):
+def discordStatusUpdate(torrentDict, webhook=None, edit=False, delete=False):
     if discord['updateEnabled']:
+        if webhook and webhook.id:
+            webhook.delete()
+
+        webhook = DiscordWebhook(
+            url=discord['webhookUrl'], 
+            rate_limit_retry=True, 
+            username='Status Bot'
+        )
+        
         if delete:
-            webhook.remove_embeds()
             embed = DiscordEmbed("Downloading Status", f"No Active Downloads", color=9807270)
             webhook.add_embed(embed)
-            response = webhook.edit()
-            return response
-        if create:
-            webhook = DiscordWebhook(
-                url=discord['webhookUrl'], 
-                rate_limit_retry=True, 
-                username='Status Bot'
-            )
+            # response = webhook.edit()
+            webhook.__dict__["flags"] = 4096
+            response = webhook.execute(remove_embeds=True)
             return webhook
         
         if not edit:
@@ -62,14 +65,18 @@ def discordStatusUpdate(torrentDict, webhook=None, create=False, edit=False, del
                 embed.add_embed_field(name=filename, value=progress, inline=False)
                 
             webhook.add_embed(embed)
+            # response = webhook.edit()
+            webhook.__dict__["flags"] = 4096
             response = webhook.execute(remove_embeds=True)
             return webhook
         else:
-            webhook.remove_embeds()
+            # webhook.remove_embeds() # Used for editing
             embed = DiscordEmbed("Downloading Status", f"Current downloading - {len(torrentDict)}", color=16776960)
             for filename,progress in torrentDict.items():
                 embed.add_embed_field(name=filename, value=progress, inline=False)
 
             webhook.add_embed(embed)
-            response = webhook.edit()
+            # response = webhook.edit() # used for editing
+            webhook.__dict__["flags"] = 4096
+            response = webhook.execute(remove_embeds=True)
             return webhook

@@ -28,6 +28,7 @@ blackhole = {
     'rdMountRefreshSeconds': env.int('BLACKHOLE_RD_MOUNT_REFRESH_SECONDS', default=None),
     'waitForTorrentTimeout': env.int('BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT', default=None),
     'historyPageSize': env.int('BLACKHOLE_HISTORY_PAGE_SIZE', default=None),
+    'waitForProgressChange': env.int('BLACKHOLE_WAIT_FOR_PROGRESS_CHANGE', default=None),
 }
 
 server = {
