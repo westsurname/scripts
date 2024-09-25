@@ -276,7 +276,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                 finally:
                     executor.shutdown(wait=False)
 
-        time.sleep(.1) # Wait before processing the file in case it isn't fully written yet.
+        time.sleep(.1)  # Wait before processing the file in case it isn't fully written yet.
         os.renames(file.fileInfo.filePath, file.fileInfo.filePathProcessing)
 
         with open(file.fileInfo.filePathProcessing, 'rb' if file.torrentInfo.isDotTorrentFile else 'r') as f:
@@ -295,13 +295,20 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                 # Prioritize cached torrents
                 torrents = [constructor(f, fileData, file, True, onlyLargestFile) for constructor in torrentConstructors]
                 results = await asyncio.gather(*(processTorrent(torrent, file, arr) for torrent in torrents))
-                
+
                 if not any(results):
+                    # Notify that cached torrents are not found and proceeding to download uncached torrents
+                    discordError(f"No cached torrents found for '{file.fileInfo.filenameWithoutExt}'. Proceeding to download uncached version.")
+
                     # If no cached torrents found, proceed to download normally
                     torrents = [constructor(f, fileData, file, False, onlyLargestFile) for constructor in torrentConstructors]
                     download_results = await asyncio.gather(*(processTorrent(torrent, file, arr) for torrent in torrents))
                     
                     if not any(download_results):
+                        # Notify that both cached and uncached torrent processing failed
+                        discordError(
+                            f"Failed to process '{file.fileInfo.filenameWithoutExt}'. Both cached and uncached torrent attempts failed."
+                        )
                         await asyncio.gather(*(fail(torrent, arr) for torrent in torrents))
             else:
                 # If not failing when not cached, proceed as usual
@@ -309,16 +316,20 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                 results = await asyncio.gather(*(processTorrent(torrent, file, arr) for torrent in torrents))
                 
                 if not any(results):
+                    # Notify that torrent processing failed
+                    discordError(
+                        f"Failed to process '{file.fileInfo.filenameWithoutExt}'. Torrent attempts failed."
+                    )
                     await asyncio.gather(*(fail(torrent, arr) for torrent in torrents))
 
             os.remove(file.fileInfo.filePathProcessing)
-    except:
-        e = traceback.format_exc()
+    except Exception as e:
+        e_trace = traceback.format_exc()
 
         print(f"Error processing {file.fileInfo.filenameWithoutExt}")
-        print(e)
+        print(e_trace)
 
-        discordError(f"Error processing {file.fileInfo.filenameWithoutExt}", e)
+        discordError(f"Error processing '{file.fileInfo.filenameWithoutExt}'", e_trace)
 
 async def fail(torrent: TorrentBase, arr: Arr):
     _print = globals()['print']
