@@ -290,21 +290,26 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                 torrentConstructors.append(TorboxTorrent if file.torrentInfo.isDotTorrentFile else TorboxMagnet)
 
             onlyLargestFile = isRadarr or bool(re.search(r'S[\d]{2}E[\d]{2}(?![\W_][\d]{2}[\W_])', file.fileInfo.filename))
-            if not blackhole['failIfNotCached']:
+            
+            if blackhole['failIfNotCached']:
+                # Prioritize cached torrents
+                torrents = [constructor(f, fileData, file, True, onlyLargestFile) for constructor in torrentConstructors]
+                results = await asyncio.gather(*(processTorrent(torrent, file, arr) for torrent in torrents))
+                
+                if not any(results):
+                    # If no cached torrents found, proceed to download normally
+                    torrents = [constructor(f, fileData, file, False, onlyLargestFile) for constructor in torrentConstructors]
+                    download_results = await asyncio.gather(*(processTorrent(torrent, file, arr) for torrent in torrents))
+                    
+                    if not any(download_results):
+                        await asyncio.gather(*(fail(torrent, arr) for torrent in torrents))
+            else:
+                # If not failing when not cached, proceed as usual
                 torrents = [constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile) for constructor in torrentConstructors]
                 results = await asyncio.gather(*(processTorrent(torrent, file, arr) for torrent in torrents))
                 
                 if not any(results):
                     await asyncio.gather(*(fail(torrent, arr) for torrent in torrents))
-            else:
-                for i, constructor in enumerate(torrentConstructors):
-                    isLast = (i == len(torrentConstructors) - 1)
-                    torrent = constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile)
-
-                    if await processTorrent(torrent, file, arr):
-                        break
-                    elif isLast:
-                        await fail(torrent, arr)
 
             os.remove(file.fileInfo.filePathProcessing)
     except:
@@ -331,7 +336,7 @@ async def fail(torrent: TorrentBase, arr: Arr):
         print(message)
         discordError(message, torrent.file.fileInfo.filenameWithoutExt)
     else:
-        # TODO: See if we can fail without blacklisting as cached items constantly changes
+        # Mark the history items as failed
         failTasks = [asyncio.to_thread(arr.failHistoryItem, item.id) for item in items]
         await asyncio.gather(*failTasks)
     print(f"Failed")
