@@ -2,10 +2,10 @@ import os
 import argparse
 import time
 import traceback
-import shared.debrid # Run validation
+from shared.debrid import validateRealdebridMountTorrentsPath, validateTorboxMountTorrentsPath
 from shared.arr import Sonarr, Radarr
 from shared.discord import discordUpdate, discordError
-from shared.shared import repair, realdebrid, torbox, intersperse
+from shared.shared import repair, realdebrid, torbox, intersperse, ensureTuple
 from datetime import datetime
 
 def parseInterval(intervalStr):
@@ -55,6 +55,11 @@ except Exception as e:
     exit(1)
 
 def main():
+    if unsafe():
+        print("One or both debrid services are not working properly. Skipping repair.")
+        discordError(f"[{args.mode}] One or both debrid services are not working properly. Skipping repair.")
+        return
+    
     print("Collecting media...")
     sonarr = Sonarr()
     radarr = Radarr()
@@ -64,6 +69,11 @@ def main():
     
     for arr, media in intersperse(sonarrMedia, radarrMedia):
         try:
+            if unsafe():
+                print("One or both debrid services are not working properly. Skipping repair.")
+                discordError(f"[{args.mode}] One or both debrid services are not working properly. Skipping repair.")
+                return 
+
             getItems = lambda media, childId: arr.getFiles(media=media, childId=childId) if args.mode == 'symlink' else arr.getHistory(media=media, childId=childId, includeGrandchildDetails=True)
             childrenIds = media.childrenIds if args.include_unmonitored else media.monitoredChildrenIds
 
@@ -128,6 +138,11 @@ def main():
 
     print("Repair complete")
     discordUpdate(f"[{args.mode}] Repair complete")
+
+def unsafe():
+    return (args.mode == 'symlink' and 
+        ((realdebrid['enabled'] and not ensureTuple(validateRealdebridMountTorrentsPath())[0]) or 
+        (torbox['enabled'] and not ensureTuple(validateTorboxMountTorrentsPath())[0])))
 
 if runIntervalSeconds > 0:
     while True:
