@@ -177,7 +177,7 @@ class RealDebrid(TorrentBase):
             torrentHash = self.getHash()
             self.print('hash:', torrentHash)
 
-            if len(torrentHash) != 40:
+            if len(torrentHash) != 40 or True:
                 self.incompatibleHashSize = True
                 return True
 
