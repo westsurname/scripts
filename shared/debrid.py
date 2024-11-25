@@ -95,7 +95,7 @@ if torbox['enabled']:
 
 checkRequiredEnvs(requiredEnvs)
 
-class TorrentBase(ABC):
+class FileBase(ABC):
     STATUS_WAITING_FILES_SELECTION = 'waiting_files_selection'
     STATUS_DOWNLOADING = 'downloading'
     STATUS_COMPLETED = 'completed'
@@ -118,7 +118,7 @@ class TorrentBase(ABC):
         print(f"[{datetime.now()}] [{self.__class__.__name__}] [{self.file.fileInfo.filenameWithoutExt}]", *values)
 
     @abstractmethod
-    def submitTorrent(self):
+    def submitFile(self):
         pass
 
     @abstractmethod
@@ -126,7 +126,7 @@ class TorrentBase(ABC):
         pass
     
     @abstractmethod
-    def addTorrent(self):
+    def addFile(self):
         pass
     
     @abstractmethod
@@ -142,7 +142,7 @@ class TorrentBase(ABC):
         pass
 
     @abstractmethod
-    async def getTorrentPath(self):
+    async def getFilePath(self):
         pass
 
     @abstractmethod
@@ -152,25 +152,29 @@ class TorrentBase(ABC):
     @abstractmethod
     def _addMagnetFile(self):
         pass
+    
+    @abstractmethod
+    def _addNZBFile(self):
+        pass
 
     def _enforceId(self):
         if not self.id:
-            raise Exception("Id is required. Must be acquired via successfully running submitTorrent() first.")
+            raise Exception("Id is required. Must be acquired via successfully running submitFile() first.")
 
-class RealDebrid(TorrentBase):
+class RealDebrid(FileBase):
     def __init__(self, f, fileData, file, failIfNotCached, onlyLargestFile) -> None:
         super().__init__(f, fileData, file, failIfNotCached, onlyLargestFile)
         self.headers = {'Authorization': f'Bearer {realdebrid["apiKey"]}'}
         self.mountTorrentsPath = realdebrid["mountTorrentsPath"]
 
-    def submitTorrent(self):
+    def submitFile(self):
         if self.failIfNotCached:
             instantAvailability = self._getInstantAvailability()
             self.print('instantAvailability:', not not instantAvailability)
             if not instantAvailability:
                 return False
 
-        return not not self.addTorrent()
+        return not not self.addFile()
 
     def _getInstantAvailability(self, refresh=False):
         if refresh or not self._instantAvailability:
@@ -281,7 +285,7 @@ class RealDebrid(TorrentBase):
         return not not deleteRequest
 
 
-    async def getTorrentPath(self):
+    async def getFilePath(self):
         filename = (await self.getInfo())['filename']
         originalFilename = (await self.getInfo())['original_filename']
 
@@ -325,6 +329,9 @@ class RealDebrid(TorrentBase):
     def _addMagnetFile(self):
         return self._addFile(requests.post, "torrents/addMagnet", {'magnet': self.fileData})
     
+    def _addNZBFile(self):
+        raise Exception("Not Implemented")
+    
     def _normalize_status(self, status):
         if status in ['waiting_files_selection']:
             return self.STATUS_WAITING_FILES_SELECTION
@@ -336,7 +343,7 @@ class RealDebrid(TorrentBase):
             return self.STATUS_ERROR
         return status
 
-class Torbox(TorrentBase):
+class Torbox(FileBase):
     def __init__(self, f, fileData, file, failIfNotCached, onlyLargestFile) -> None:
         super().__init__(f, fileData, file, failIfNotCached, onlyLargestFile)
         self.headers = {'Authorization': f'Bearer {torbox["apiKey"]}'}
@@ -352,14 +359,14 @@ class Torbox(TorrentBase):
             userInfo = userInfoRequest.json()
             self.authId = userInfo['data']['auth_id']
 
-    def submitTorrent(self):
+    def submitFile(self):
         if self.failIfNotCached:
             instantAvailability = self._getInstantAvailability()
             self.print('instantAvailability:', not not instantAvailability)
             if not instantAvailability:
                 return False
             
-        if self.addTorrent():
+        if self.addFile():
             self.submittedTime = datetime.now()
             return True
         return False
@@ -438,7 +445,7 @@ class Torbox(TorrentBase):
         )
         return not not deleteRequest
 
-    async def getTorrentPath(self):
+    async def getFilePath(self):
         filename = (await self.getInfo())['name']
 
         folderPathMountFilenameTorrent = os.path.join(self.mountTorrentsPath, filename)
@@ -461,7 +468,7 @@ class Torbox(TorrentBase):
         response = request.json()
         self.print('response info:', response)
         
-        if response.get('detail') == 'queued':
+        if 'queued' in response.get('detail'):
             return None
         
         self.id = response['data']['torrent_id']
@@ -475,6 +482,9 @@ class Torbox(TorrentBase):
 
     def _addMagnetFile(self):
         return self._addFile(data={'magnet': self.fileData})
+    
+    def _addNZBFile(self):
+        raise Exception("Not Implemented")
 
     def _normalize_status(self, status, download_finished):
         if download_finished:
@@ -490,7 +500,7 @@ class Torbox(TorrentBase):
             return self.STATUS_ERROR
         return status
 
-class Torrent(TorrentBase):
+class Torrent(FileBase):
     def getHash(self):
 
         if not self._hash:
@@ -499,10 +509,10 @@ class Torrent(TorrentBase):
         
         return self._hash
 
-    def addTorrent(self):
+    def addFile(self):
         return self._addTorrentFile()
 
-class Magnet(TorrentBase):
+class Magnet(FileBase):
     def getHash(self):
 
         if not self._hash:
@@ -511,7 +521,7 @@ class Magnet(TorrentBase):
         
         return self._hash
     
-    def addTorrent(self):
+    def addFile(self):
         return self._addMagnetFile()
 
 
@@ -525,4 +535,169 @@ class TorboxTorrent(Torbox, Torrent):
     pass
 
 class TorboxMagnet(Torbox, Magnet):
+    pass
+
+
+class UsenetTorbox(FileBase):
+    def __init__(self, f, fileData, file, failIfNotCached, onlyLargestFile) -> None:
+        super().__init__(f, fileData, file, failIfNotCached, onlyLargestFile)
+        self.headers = {'Authorization': f'Bearer {torbox["apiKey"]}'}
+        self.mountTorrentsPath = torbox["mountTorrentsPath"]
+        self.submittedTime = None
+        self.lastInactiveCheck = None
+
+        userInfoRequest = retryRequest(
+            lambda: requests.get(urljoin(torbox['host'], "user/me"), headers=self.headers),
+            print=self.print
+        )
+        if userInfoRequest is not None:
+            userInfo = userInfoRequest.json()
+            self.authId = userInfo['data']['auth_id']
+
+    def submitFile(self):
+        if self.failIfNotCached:
+            instantAvailability = self._getInstantAvailability()
+            self.print('instantAvailability:', not not instantAvailability)
+            if not instantAvailability:
+                return False
+            
+        if self.addFile():
+            self.submittedTime = datetime.now()
+            return True
+        return False
+    
+    def _getInstantAvailability(self, refresh=False):
+        if refresh or not self._instantAvailability:
+            usenetHash = self.getHash()
+            self.print('hash:', usenetHash)
+
+            instantAvailabilityRequest = retryRequest(
+                lambda: requests.get(
+                    urljoin(torbox['host'], "usenet/checkcached"),
+                    headers=self.headers,
+                    params={'hash': usenetHash, 'format': 'object'}
+                ),
+                print=self.print
+            )
+            if instantAvailabilityRequest is None:
+                return None
+
+            instantAvailabilities = instantAvailabilityRequest.json()
+            self.print('instantAvailabilities:', instantAvailabilities)
+            
+            # Check if 'data' exists and is not None or False
+            if instantAvailabilities and 'data' in instantAvailabilities and instantAvailabilities['data']:
+                self._instantAvailability = instantAvailabilities['data']
+            else:
+                self._instantAvailability = None
+        
+        return self._instantAvailability
+
+    async def getInfo(self, refresh=False):
+        self._enforceId()
+
+        if refresh or not self._info:
+            if not self.authId:
+                return None
+            
+            for _ in range(60):
+                infoRequest = retryRequest(
+                    lambda: requests.get(urljoin(torbox['host'], "usenet/mylist"), headers=self.headers),
+                    print=self.print
+                )
+                if infoRequest is None:
+                    return None
+
+                usenetData = infoRequest.json()['data']
+                
+                for usenet in usenetData:
+                    if usenet['id'] == self.id:
+                        usenet['status'] = self._normalize_status(usenet['download_state'], usenet['download_finished'])
+                        self._info = usenet
+                        return self._info
+                
+                await asyncio.sleep(1)
+        return self._info
+
+    async def selectFiles(self):
+        pass
+
+    def delete(self):
+        self._enforceId()
+
+        deleteRequest = retryRequest(
+            lambda: requests.delete(urljoin(torbox['host'], "usenet/controlusenetdownload"), headers=self.headers, data={'usenet_id': self.id, 'operation': "delete"}),
+            print=self.print
+        )
+        return not not deleteRequest
+
+    async def getFilePath(self):
+        filename = (await self.getInfo())['name']
+
+        folderPathMountFilenameUsenet = os.path.join(self.mountTorrentsPath, filename)
+       
+        if os.path.exists(folderPathMountFilenameUsenet) and os.listdir(folderPathMountFilenameUsenet):
+            folderPathMountUsenet = folderPathMountFilenameUsenet
+        else:
+            folderPathMountUsenet = None
+
+        return folderPathMountUsenet
+
+    def _addFile(self, data=None, files=None):
+        request = retryRequest(
+            lambda: requests.post(urljoin(torbox['host'], "usenet/createusenetdownload"), headers=self.headers, data=data, files=files),
+            print=self.print
+        )
+        if request is None:
+            return None
+        
+        response = request.json()
+        self.print('response info:', response)
+        
+        if response.get('detail') == 'queued':
+            return None
+        
+        self.id = response['data']['usenetdownload_id']
+
+        return self.id
+    
+    def _addTorrentFile(self):
+        raise Exception("Not Implemented")
+
+    def _addMagnetFile(self):
+        raise Exception("Not Implemented")
+
+    def _addNZBFile(self):
+        nameusenet = self.f.name.split('/')[-1]
+        files = {'file': (nameusenet, self.f, 'application/octet-stream')}
+        return self._addFile(files=files)
+
+    def _normalize_status(self, status, download_finished):
+        if download_finished:
+            return self.STATUS_COMPLETED
+        elif status in [
+            'completed', 'cached', 'paused', 'downloading', 'uploading',
+            'checkingResumeData', 'metaDL', 'pausedUP', 'queuedUP', 'checkingUP',
+            'forcedUP', 'allocating', 'downloading', 'metaDL', 'pausedDL',
+            'queuedDL', 'checkingDL', 'forcedDL', 'checkingResumeData', 'moving'
+        ]:
+            return self.STATUS_DOWNLOADING
+        elif status in ['error', 'stalledUP', 'stalledDL', 'stalled (no seeds)', 'missingFiles']:
+            return self.STATUS_ERROR
+        return status
+
+
+class NZB(FileBase):
+    def getHash(self):
+
+        if not self._hash:
+            self._hash = hashlib.sha1(self.fileData).hexdigest()
+        
+        return self._hash
+
+    def addFile(self):
+        return self._addNZBFile()
+
+
+class TorboxNZB(UsenetTorbox, NZB):
     pass
