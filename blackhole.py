@@ -12,7 +12,7 @@ from datetime import datetime
 from shared.discord import discordError, discordUpdate
 from shared.shared import realdebrid, torbox, blackhole, plex, checkRequiredEnvs
 from shared.arr import Arr, Radarr, Sonarr
-from shared.debrid import TorrentBase, RealDebridTorrent, RealDebridMagnet, TorboxTorrent, TorboxMagnet
+from shared.debrid import FileBase, RealDebridTorrent, RealDebridMagnet, TorboxTorrent, TorboxMagnet, TorboxNZB
 
 _print = print
 
@@ -41,23 +41,25 @@ class TorrentFileInfo():
             self.folderPathCompleted = folderPathCompleted
 
     class TorrentInfo():
-        def __init__(self, isTorrentOrMagnet, isDotTorrentFile) -> None:
-            self.isTorrentOrMagnet = isTorrentOrMagnet
+        def __init__(self, isTorrentMagnetOrNZB, isDotTorrentFile, isDotNZBFile) -> None:
+            self.isTorrentMagnetOrNZB = isTorrentMagnetOrNZB
             self.isDotTorrentFile = isDotTorrentFile
+            self.isDotNZBFile = isDotNZBFile
 
     def __init__(self, filename, isRadarr) -> None:
         print('filename:', filename)
         baseBath = getPath(isRadarr)
         uniqueId = str(uuid.uuid4())[:8]  # Generate a unique identifier
         isDotTorrentFile = filename.casefold().endswith('.torrent')
-        isTorrentOrMagnet = isDotTorrentFile or filename.casefold().endswith('.magnet')
+        isDotNZBFile = filename.casefold().endswith('.nzb')
+        isTorrentMagnetOrNZB = isDotNZBFile or isDotTorrentFile or filename.casefold().endswith('.magnet')
         filenameWithoutExt, ext = os.path.splitext(filename)
         filePath = os.path.join(baseBath, filename)
         filePathProcessing = os.path.join(baseBath, 'processing', f"{filenameWithoutExt}_{uniqueId}{ext}")
         folderPathCompleted = os.path.join(baseBath, 'completed', filenameWithoutExt)
         
         self.fileInfo = self.FileInfo(filename, filenameWithoutExt, filePath, filePathProcessing, folderPathCompleted)
-        self.torrentInfo = self.TorrentInfo(isTorrentOrMagnet, isDotTorrentFile)
+        self.torrentInfo = self.TorrentInfo(isTorrentMagnetOrNZB, isDotTorrentFile, isDotNZBFile)
 
 def getPath(isRadarr, create=False):
     baseWatchPath = blackhole['baseWatchPath']
@@ -137,13 +139,13 @@ def copyFiles(file: TorrentFileInfo, folderPathMountTorrent, arr: Arr):
 
 import signal
 
-async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) -> bool:
+async def processTorrent(torrent: FileBase, file: TorrentFileInfo, arr: Arr) -> bool:
     _print = globals()['print']
 
     def print(*values: object):
         _print(f"[{torrent.__class__.__name__}] [{file.fileInfo.filenameWithoutExt}]", *values)
         
-    if not torrent.submitTorrent():
+    if not torrent.submitFile():
         return False
 
     count = 0
@@ -179,7 +181,7 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) 
             while True:
                 existsCount += 1
                 
-                folderPathMountTorrent = await torrent.getTorrentPath()
+                folderPathMountTorrent = await torrent.getFilePath()
                 if folderPathMountTorrent:
                     multiSeasonRegex1 = r'(?<=[\W_][Ss]eason[\W_])[\d][\W_][\d]{1,2}(?=[\W_])'
                     multiSeasonRegex2 = r'(?<=[\W_][Ss])[\d]{2}[\W_][Ss]?[\d]{2}(?=[\W_])'
@@ -279,7 +281,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
         time.sleep(.1) # Wait before processing the file in case it isn't fully written yet.
         os.renames(file.fileInfo.filePath, file.fileInfo.filePathProcessing)
 
-        with open(file.fileInfo.filePathProcessing, 'rb' if file.torrentInfo.isDotTorrentFile else 'r') as f:
+        with open(file.fileInfo.filePathProcessing, 'rb' if file.torrentInfo.isDotTorrentFile or file.torrentInfo.isDotNZBFile else 'r') as f:
             fileData = f.read()
             f.seek(0)
             
@@ -287,7 +289,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
             if realdebrid['enabled']:
                 torrentConstructors.append(RealDebridTorrent if file.torrentInfo.isDotTorrentFile else RealDebridMagnet)
             if torbox['enabled']:
-                torrentConstructors.append(TorboxTorrent if file.torrentInfo.isDotTorrentFile else TorboxMagnet)
+                torrentConstructors.append(TorboxNZB if file.torrentInfo.isDotNZBFile else TorboxTorrent if file.torrentInfo.isDotTorrentFile else TorboxMagnet)
 
             onlyLargestFile = isRadarr or bool(re.search(r'S[\d]{2}E[\d]{2}(?![\W_][\d]{2}[\W_])', file.fileInfo.filename))
             if not blackhole['failIfNotCached']:
@@ -315,7 +317,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
 
         discordError(f"Error processing {file.fileInfo.filenameWithoutExt}", e)
 
-async def fail(torrent: TorrentBase, arr: Arr):
+async def fail(torrent: FileBase, arr: Arr):
     _print = globals()['print']
 
     def print(*values: object):
@@ -339,7 +341,7 @@ async def fail(torrent: TorrentBase, arr: Arr):
 def getFiles(isRadarr):
     print('getFiles')
     files = (TorrentFileInfo(filename, isRadarr) for filename in os.listdir(getPath(isRadarr)) if filename not in ['processing', 'completed'])
-    return [file for file in files if file.torrentInfo.isTorrentOrMagnet]
+    return [file for file in files if file.torrentInfo.isTorrentMagnetOrNZB]
 
 async def on_created(isRadarr):
     print("Enter 'on_created'")
