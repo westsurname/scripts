@@ -1,0 +1,46 @@
+# Frontend build stage
+FROM node:18-slim AS frontend-builder
+WORKDIR /app
+
+# Copy package files first for better caching
+COPY client/package*.json ./
+RUN npm install
+
+# Copy the rest of the client code
+COPY client/ ./
+
+# Build the frontend first
+RUN npm run build
+
+# Create directory structure for mediainfo images
+RUN mkdir -p /app/build/static/images/mediainfo/codec \
+    /app/build/static/images/mediainfo/edition \
+    /app/build/static/images/mediainfo/resolution
+
+# Copy mediainfo images to the correct location and verify
+COPY client/src/images/mediainfo/codec/* /app/build/static/images/mediainfo/codec/
+COPY client/src/images/mediainfo/edition/* /app/build/static/images/mediainfo/edition/
+COPY client/src/images/mediainfo/resolution/* /app/build/static/images/mediainfo/resolution/
+
+# Python application stage
+FROM python:3.9-slim
+LABEL org.opencontainers.image.source="https://github.com/westsurname/scripts"
+LABEL org.opencontainers.image.description="Docker image for the blackhole service"
+
+ARG SERVICE_NAME=blackhole
+WORKDIR /app
+
+# Install Python dependencies first for better caching
+COPY requirements.txt ./
+RUN grep -E "#.*($SERVICE_NAME|all)" requirements.txt | awk '{print $0}' > service_requirements.txt && \
+    pip install --no-cache-dir -r service_requirements.txt
+
+# Copy application code
+COPY . .
+
+# Copy frontend build files
+COPY --from=frontend-builder /app/build/* /app/static/
+
+ENV PYTHONBUFFERED=1
+
+CMD ["python", "blackhole_watcher.py"]
