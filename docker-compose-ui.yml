@@ -13,6 +13,8 @@ services:
   blackhole:
     <<: *blackhole
     container_name: blackhole-ui
+    ports:
+      - 8000:8000
     volumes:
       - ${REALDEBRID_MOUNT_TORRENTS_PATH:-${BLACKHOLE_RD_MOUNT_TORRENTS_PATH:-/dev/null}}:${REALDEBRID_MOUNT_TORRENTS_PATH:-${BLACKHOLE_RD_MOUNT_TORRENTS_PATH:-/dev/null}}
       - ${TORBOX_MOUNT_TORRENTS_PATH:-/dev/null}:${TORBOX_MOUNT_TORRENTS_PATH:-/dev/null}
@@ -21,20 +23,6 @@ services:
     environment:
       - BLACKHOLE_BASE_WATCH_PATH=${BLACKHOLE_BASE_WATCH_PATH}
     restart: unless-stopped
-    labels:
-      com.github.saltbox.saltbox_managed: true 
-      traefik.enable: true 
-      traefik.http.routers.blackhole-http.entrypoints: web 
-      traefik.http.routers.blackhole-http.middlewares: globalHeaders@file,redirect-to-https@docker,robotHeaders@file,cloudflarewarp@docker 
-      traefik.http.routers.blackhole-http.rule: Host(`blackhole.davyjones.media`) 
-      traefik.http.routers.blackhole-http.service: blackhole 
-      traefik.http.routers.blackhole.entrypoints: websecure 
-      traefik.http.routers.blackhole.middlewares: globalHeaders@file,secureHeaders@file,robotHeaders@file,cloudflarewarp@docker 
-      traefik.http.routers.blackhole.rule: Host(`blackhole.davyjones.media`) 
-      traefik.http.routers.blackhole.service: blackhole 
-      traefik.http.routers.blackhole.tls.certresolver: cfdns 
-      traefik.http.routers.blackhole.tls.options: securetls@file 
-      traefik.http.services.blackhole.loadbalancer.server.port: 8000
     profiles: [blackhole-ui]
 
 networks:
