@@ -16,7 +16,6 @@ from shared.debrid import TorrentBase, RealDebridTorrent, RealDebridMagnet, Torb
 from shared.websocket import WebSocketManager
 from dotenv import load_dotenv
 
-
 load_dotenv()
 
 # Add helper functions here, before any other code
