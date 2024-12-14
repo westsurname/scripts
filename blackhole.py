@@ -255,7 +255,7 @@ async def processTorrent(torrent: FileBase, file: TorrentFileInfo, arr: Arr) -> 
 async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
     try:
         _print = globals()['print']
-
+        
         def print(*values: object):
             _print(f"[{file.fileInfo.filenameWithoutExt}]", *values)
 
@@ -280,13 +280,16 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
 
         time.sleep(.1) # Wait before processing the file in case it isn't fully written yet.
         os.renames(file.fileInfo.filePath, file.fileInfo.filePathProcessing)
+        
+        if file.torrentInfo.isDotNZBFile and not torbox['enabled']:
+            raise Exception("Cannot process NZB, no NZB client enabled (i.e. Torbox)")
 
         with open(file.fileInfo.filePathProcessing, 'rb' if file.torrentInfo.isDotTorrentFile or file.torrentInfo.isDotNZBFile else 'r') as f:
             fileData = f.read()
             f.seek(0)
             
             torrentConstructors = []
-            if realdebrid['enabled']:
+            if realdebrid['enabled'] and not file.torrentInfo.isDotNZBFile:
                 torrentConstructors.append(RealDebridTorrent if file.torrentInfo.isDotTorrentFile else RealDebridMagnet)
             if torbox['enabled']:
                 torrentConstructors.append(TorboxNZB if file.torrentInfo.isDotNZBFile else TorboxTorrent if file.torrentInfo.isDotTorrentFile else TorboxMagnet)
@@ -362,7 +365,7 @@ async def on_created(isRadarr):
             if files:
                 futures.append(asyncio.gather(*(processFile(file, arr, isRadarr) for file in files)))
             elif firstGo:
-                print('No torrent files found')
+                print('No torrent or NZB files found')
             firstGo = False
             await asyncio.sleep(1)
 
