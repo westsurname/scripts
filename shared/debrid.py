@@ -689,9 +689,10 @@ class UsenetTorbox(FileBase):
 
 class NZB(FileBase):
     def getHash(self):
-
+        
+        #TODO: Verify that torbox uses md5 hash for nzb files
         if not self._hash:
-            self._hash = hashlib.sha1(self.fileData).hexdigest()
+            self._hash = hashlib.md5(self.fileData).hexdigest()
         
         return self._hash
 
