@@ -613,6 +613,7 @@ class UsenetTorbox(FileBase):
                 for usenet in usenetData:
                     if usenet['id'] == self.id:
                         usenet['status'] = self._normalize_status(usenet['download_state'], usenet['download_finished'])
+                        usenet['progress'] = usenet['progress'] * 100
                         self._info = usenet
                         return self._info
                 
