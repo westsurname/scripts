@@ -1,0 +1,31 @@
+x-blackhole: &blackhole
+  build: 
+    context: .
+    dockerfile: Dockerfile.blackhole-ui
+#  image: ghcr.io/westsurname/scripts/blackhole:latest
+  pull_policy: always
+  user: "${PUID:-}${PGID:+:${PGID}}"
+  env_file:
+    - .env
+  restart: unless-stopped
+
+services:
+  blackhole:
+    <<: *blackhole
+    container_name: blackhole-ui
+    ports:
+      - 8000:8000
+    volumes:
+      - ${REALDEBRID_MOUNT_TORRENTS_PATH:-${BLACKHOLE_RD_MOUNT_TORRENTS_PATH:-/dev/null}}:${REALDEBRID_MOUNT_TORRENTS_PATH:-${BLACKHOLE_RD_MOUNT_TORRENTS_PATH:-/dev/null}}
+      - ${TORBOX_MOUNT_TORRENTS_PATH:-/dev/null}:${TORBOX_MOUNT_TORRENTS_PATH:-/dev/null}
+      - ${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}:/${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}
+      - ${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}:/${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}
+    environment:
+      - BLACKHOLE_BASE_WATCH_PATH=${BLACKHOLE_BASE_WATCH_PATH}
+    restart: unless-stopped
+    profiles: [blackhole-ui]
+
+networks:
+  default:
+    name: ${DOCKER_NETWORK:-scripts_default}
+    external: ${DOCKER_NETWORK_EXTERNAL:-false}

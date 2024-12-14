@@ -23,19 +23,29 @@ x-repair: &repair
 services:
   blackhole:
     <<: *blackhole
-    container_name: blackhole_service
-    environment:
-      - BLACKHOLE_BASE_WATCH_PATH=/${BLACKHOLE_BASE_WATCH_PATH}
+    container_name: blackhole
+    ports:
+      - 8000:8000
     volumes:
       - ${REALDEBRID_MOUNT_TORRENTS_PATH:-${BLACKHOLE_RD_MOUNT_TORRENTS_PATH:-/dev/null}}:${REALDEBRID_MOUNT_TORRENTS_PATH:-${BLACKHOLE_RD_MOUNT_TORRENTS_PATH:-/dev/null}}
       - ${TORBOX_MOUNT_TORRENTS_PATH:-/dev/null}:${TORBOX_MOUNT_TORRENTS_PATH:-/dev/null}
       - ${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}:/${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_SONARR_PATH}
       - ${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}:/${BLACKHOLE_BASE_WATCH_PATH}/${BLACKHOLE_RADARR_PATH}
+    environment:
+      - BLACKHOLE_BASE_WATCH_PATH=${BLACKHOLE_BASE_WATCH_PATH}
+    restart: unless-stopped
     profiles: [blackhole, blackhole_all, all]
+
+networks:
+  default:
+    name: ${DOCKER_NETWORK:-scripts_default}
+    external: ${DOCKER_NETWORK_EXTERNAL:-false}
 
   blackhole_4k:
     <<: *blackhole
     container_name: blackhole_4k_service
+    ports:
+      - 8000:8000
     environment:
       - SONARR_HOST=${SONARR_HOST_4K}
       - SONARR_API_KEY=${SONARR_API_KEY_4K}
@@ -52,6 +62,8 @@ services:
   blackhole_anime:
     <<: *blackhole
     container_name: blackhole_anime_service
+    ports:
+      - 8000:8000
     environment:
       - SONARR_HOST=${SONARR_HOST_ANIME}
       - SONARR_API_KEY=${SONARR_API_KEY_ANIME}
@@ -68,6 +80,8 @@ services:
   blackhole_mux:
     <<: *blackhole
     container_name: blackhole_mux_service
+    ports:
+      - 8000:8000
     environment:
       - SONARR_HOST=${SONARR_HOST_MUX}
       - SONARR_API_KEY=${SONARR_API_KEY_MUX}

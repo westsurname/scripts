@@ -313,6 +313,12 @@ class Arr(ABC):
     def _automaticSearchJson(self, media: Media, childId: int):
         pass
 
+    def parse(self, title: str):
+        response = retryRequest(lambda: requests.get(
+            f"{self.host}/api/v3/parse?apiKey={self.apiKey}&title={title}"
+        ))
+        return response.json()
+
 class Sonarr(Arr):
     host = sonarr['host']
     apiKey = sonarr['apiKey']
