@@ -439,7 +439,7 @@ class Torbox(TorrentBase):
         return not not deleteRequest
 
     async def getTorrentPath(self):
-        filename = (await self.getInfo())['name']
+        filename = (await self.getInfo())['files'][0]['name'].split("/")[0]
 
         folderPathMountFilenameTorrent = os.path.join(self.mountTorrentsPath, filename)
        
@@ -486,7 +486,7 @@ class Torbox(TorrentBase):
             'queuedDL', 'checkingDL', 'forcedDL', 'checkingResumeData', 'moving'
         ]:
             return self.STATUS_DOWNLOADING
-        elif status in ['error', 'stalledUP', 'stalledDL', 'stalled (no seeds)', 'missingFiles']:
+        elif status in ['error', 'stalledUP', 'stalledDL', 'stalled (no seeds)', 'missingFiles', 'failed']:
             return self.STATUS_ERROR
         return status
 
