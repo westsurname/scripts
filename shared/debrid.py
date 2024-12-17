@@ -446,9 +446,9 @@ class Torbox(FileBase):
         return not not deleteRequest
 
     async def getFilePath(self):
-        filename = (await self.getInfo())['name']
+        filepath = (await self.getInfo())['files'][0]['name']
 
-        folderPathMountFilenameTorrent = os.path.join(self.mountTorrentsPath, filename)
+        folderPathMountFilenameTorrent = os.path.join(self.mountTorrentsPath, filepath)
        
         if os.path.exists(folderPathMountFilenameTorrent) and os.listdir(folderPathMountFilenameTorrent):
             folderPathMountTorrent = folderPathMountFilenameTorrent
@@ -633,9 +633,9 @@ class UsenetTorbox(FileBase):
         return not not deleteRequest
 
     async def getFilePath(self):
-        filename = (await self.getInfo())['name']
+        filepath = (await self.getInfo())['files'][0]['name']
 
-        folderPathMountFilenameUsenet = os.path.join(self.mountTorrentsPath, filename)
+        folderPathMountFilenameUsenet = os.path.join(self.mountTorrentsPath, filepath)
        
         if os.path.exists(folderPathMountFilenameUsenet) and os.listdir(folderPathMountFilenameUsenet):
             folderPathMountUsenet = folderPathMountFilenameUsenet
