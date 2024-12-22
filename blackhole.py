@@ -53,7 +53,8 @@ class TorrentFileInfo():
         isTorrentOrMagnet = isDotTorrentFile or filename.casefold().endswith('.magnet')
         filenameWithoutExt, ext = os.path.splitext(filename)
         filePath = os.path.join(baseBath, filename)
-        filePathProcessing = os.path.join(baseBath, 'processing', f"{filenameWithoutExt}_{uniqueId}{ext}")
+        filePathProcessing = trimProcessingFilepath(os.path.join(baseBath, 'processing'), filenameWithoutExt, f"_{uniqueId}{ext}")
+        #filePathProcessing = os.path.join(baseBath, 'processing', f"{filenameWithoutExt}_{uniqueId}{ext}")
         folderPathCompleted = os.path.join(baseBath, 'completed', filenameWithoutExt)
         
         self.fileInfo = self.FileInfo(filename, filenameWithoutExt, filePath, filePathProcessing, folderPathCompleted)
@@ -71,6 +72,17 @@ def getPath(isRadarr, create=False):
                 os.makedirs(path_to_check)
         
     return finalPath
+
+def trimProcessingFilepath(basepath, filename, ext):
+    MAX_PATH_LENGTH = 255
+    path = os.path.join(basepath, filename + ext)
+    if len(path) <= MAX_PATH_LENGTH:
+        return path
+
+    remainingLength = MAX_PATH_LENGTH - len(basepath) - len(ext) - 1
+    return os.path.join(basepath, filename[:remainingLength] + ext)
+
+
 
 # From Radarr Radarr/src/NzbDrone.Core/Organizer/FileNameBuilder.cs
 def cleanFileName(name):
@@ -277,15 +289,15 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                     executor.shutdown(wait=False)
 
         time.sleep(.1) # Wait before processing the file in case it isn't fully written yet.
-        try:
-            os.renames(file.fileInfo.filePath, file.fileInfo.filePathProcessing)
-        except OSError as e:
-            if e.errno == 36: # File name too long
-                print(f"Error handling paths for {file.fileInfo.filenameWithoutExt}. Paths may be too long. Blacklisting.")
-                os.remove(file.fileInfo.filePath)
-                await fail(arr=arr, filename=file.fileInfo.filenameWithoutExt)
-                return False
-            raise
+   #     try:
+        os.renames(file.fileInfo.filePath, file.fileInfo.filePathProcessing)
+    #    except OSError as e:
+     #       if e.errno == 36: # File name too long
+      #          print(f"Error handling paths for {file.fileInfo.filenameWithoutExt}. Paths may be too long. Blacklisting.")
+       #         os.remove(file.fileInfo.filePath)
+        #        await fail(arr=arr, filename=file.fileInfo.filenameWithoutExt)
+         #       return False
+          #  raise
 
 
         with open(file.fileInfo.filePathProcessing, 'rb' if file.torrentInfo.isDotTorrentFile else 'r') as f:
