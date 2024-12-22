@@ -30,7 +30,6 @@ parser.add_argument('--repair-interval', type=str, default=repair['repairInterva
 parser.add_argument('--run-interval', type=str, default=repair['runInterval'], help='Optional interval in smart format (e.g. 1w2d3h4m5s) to run the repair process.')
 parser.add_argument('--mode', type=str, choices=['symlink', 'file'], default='symlink', help='Choose repair mode: `symlink` or `file`. `symlink` to repair broken symlinks and `file` to repair missing files.')
 parser.add_argument('--season-packs', action='store_true', help='Upgrade to season-packs when a non-season-pack is found. Only applicable in symlink mode.')
-parser.add_argument('--soft-repair', action='store_true', help='Only search for missing files, do not delete or re-grab. This is always enabled in file mode.')
 parser.add_argument('--include-unmonitored', action='store_true', help='Include unmonitored media in the repair process')
 args = parser.parse_args()
 
@@ -104,7 +103,7 @@ def main():
                     if args.dry_run or args.no_confirm or input("Do you want to delete and re-grab? (y/n): ").lower() == 'y':
                         if not args.dry_run:
                             discordUpdate(f"[{args.mode}] Repairing {media.title}: {childId}")
-                            if args.mode == 'symlink' and not args.soft_repair:
+                            if args.mode == 'symlink':
                                 print("Deleting files:")
                                 [print(item.path) for item in childItems]
                                 results = arr.deleteFiles(childItems)
