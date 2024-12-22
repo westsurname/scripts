@@ -53,7 +53,7 @@ class TorrentFileInfo():
         isTorrentOrMagnet = isDotTorrentFile or filename.casefold().endswith('.magnet')
         filenameWithoutExt, ext = os.path.splitext(filename)
         filePath = os.path.join(baseBath, filename)
-        filePathProcessing = os.path.join(baseBath, 'processing', f"{filenameWithoutExt}_{uniqueId}{ext}")
+        filePathProcessing = trimProcessingFilepath(os.path.join(baseBath, 'processing'), filenameWithoutExt, f"_{uniqueId}{ext}")
         folderPathCompleted = os.path.join(baseBath, 'completed', filenameWithoutExt)
         
         self.fileInfo = self.FileInfo(filename, filenameWithoutExt, filePath, filePathProcessing, folderPathCompleted)
@@ -71,6 +71,15 @@ def getPath(isRadarr, create=False):
                 os.makedirs(path_to_check)
         
     return finalPath
+
+def trimProcessingFilepath(basepath, filename, ext):
+    MAX_PATH_LENGTH = 255
+    path = os.path.join(basepath, filename + ext)
+    if len(path) <= MAX_PATH_LENGTH:
+        return path
+
+    remainingLength = MAX_PATH_LENGTH - len(basepath) - len(ext) - 1
+    return os.path.join(basepath, filename[:remainingLength] + ext)
 
 # From Radarr Radarr/src/NzbDrone.Core/Organizer/FileNameBuilder.cs
 def cleanFileName(name):
@@ -322,7 +331,7 @@ async def fail(torrent: TorrentBase, arr: Arr):
         _print(f"[{torrent.__class__.__name__}] [{torrent.file.fileInfo.filenameWithoutExt}]", *values)
 
     print(f"Failing")
-    
+
     torrentHash = torrent.getHash()
     history = await asyncio.to_thread(arr.getHistory, blackhole['historyPageSize'])
     items = [item for item in history if (item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold()) or cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
@@ -335,7 +344,7 @@ async def fail(torrent: TorrentBase, arr: Arr):
         failTasks = [asyncio.to_thread(arr.failHistoryItem, item.id) for item in items]
         await asyncio.gather(*failTasks)
     print(f"Failed")
-    
+
 def getFiles(isRadarr):
     print('getFiles')
     files = (TorrentFileInfo(filename, isRadarr) for filename in os.listdir(getPath(isRadarr)) if filename not in ['processing', 'completed'])
@@ -353,7 +362,7 @@ async def on_created(isRadarr):
 
         futures: list[asyncio.Future] = []
         firstGo = True
-        
+
         # Consider switching to a queue
         while firstGo or not all(future.done() for future in futures):
             files = getFiles(isRadarr)
