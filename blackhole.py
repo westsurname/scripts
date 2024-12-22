@@ -54,7 +54,6 @@ class TorrentFileInfo():
         filenameWithoutExt, ext = os.path.splitext(filename)
         filePath = os.path.join(baseBath, filename)
         filePathProcessing = trimProcessingFilepath(os.path.join(baseBath, 'processing'), filenameWithoutExt, f"_{uniqueId}{ext}")
-        #filePathProcessing = os.path.join(baseBath, 'processing', f"{filenameWithoutExt}_{uniqueId}{ext}")
         folderPathCompleted = os.path.join(baseBath, 'completed', filenameWithoutExt)
         
         self.fileInfo = self.FileInfo(filename, filenameWithoutExt, filePath, filePathProcessing, folderPathCompleted)
@@ -81,8 +80,6 @@ def trimProcessingFilepath(basepath, filename, ext):
 
     remainingLength = MAX_PATH_LENGTH - len(basepath) - len(ext) - 1
     return os.path.join(basepath, filename[:remainingLength] + ext)
-
-
 
 # From Radarr Radarr/src/NzbDrone.Core/Organizer/FileNameBuilder.cs
 def cleanFileName(name):
