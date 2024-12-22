@@ -254,6 +254,7 @@ class EpisodeHistory(MediaHistory):
         return self.json['episode']['seasonNumber']
 
     @property
+    # Requires includeGrandchildDetails to be true
     def grandparentId(self):
         """Get the series ID from the history item."""
         return self.json['episode']['seriesId']

@@ -345,7 +345,7 @@ async def fail(torrent: TorrentBase, arr: Arr, isRadarr):
     print(f"Failing")
     
     torrentHash = torrent.getHash()
-    history = await asyncio.to_thread(arr.getHistory, blackhole['historyPageSize'])
+    history = await asyncio.to_thread(arr.getHistory, blackhole['historyPageSize'], includeGrandchildDetails=True)
     items = [item for item in history if (item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold()) or cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
     
     if not items:
