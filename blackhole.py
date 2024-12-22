@@ -48,12 +48,29 @@ class TorrentFileInfo():
     def __init__(self, filename, isRadarr) -> None:
         print('filename:', filename)
         baseBath = getPath(isRadarr)
-        uniqueId = str(uuid.uuid4())[:8]  # Generate a unique identifier
+        uniqueId = str(uuid.uuid4())[:8]
         isDotTorrentFile = filename.casefold().endswith('.torrent')
         isTorrentOrMagnet = isDotTorrentFile or filename.casefold().endswith('.magnet')
         filenameWithoutExt, ext = os.path.splitext(filename)
         filePath = os.path.join(baseBath, filename)
-        filePathProcessing = os.path.join(baseBath, 'processing', f"{filenameWithoutExt}_{uniqueId}{ext}")
+
+        # Get the maximum filename length for the target directory
+        try:
+            maxNameBytes = os.pathconf(baseBath, 'PC_NAME_MAX')
+        except (AttributeError, ValueError, OSError):
+            maxNameBytes = 255
+
+        # Calculate space needed for uniqueId, separator, and extension
+        extraBytes = len(f"_{uniqueId}{ext}".encode())
+        
+        # Truncate the filename if needed
+        if len(filenameWithoutExt.encode()) > maxNameBytes - extraBytes:
+            processingName = truncateBytes(filenameWithoutExt, maxNameBytes - extraBytes)
+            print(f"Truncated filename from {len(filenameWithoutExt.encode())} to {len(processingName.encode())} bytes")
+        else:
+            processingName = filenameWithoutExt
+
+        filePathProcessing = os.path.join(baseBath, 'processing', f"{processingName}_{uniqueId}{ext}")
         folderPathCompleted = os.path.join(baseBath, 'completed', filenameWithoutExt)
         
         self.fileInfo = self.FileInfo(filename, filenameWithoutExt, filePath, filePathProcessing, folderPathCompleted)
@@ -84,6 +101,11 @@ def cleanFileName(name):
     return result.strip()
 
 refreshingTask = None
+
+def truncateBytes(text: str, maxBytes: int) -> str:
+    """Truncate a string to a maximum number of bytes in UTF-8 encoding."""
+    encoded = text.encode()
+    return encoded[:maxBytes].decode(errors='ignore')
 
 async def refreshArr(arr: Arr, count=60):
     # TODO: Change to refresh until found/imported
@@ -165,8 +187,7 @@ async def processTorrent(torrent: TorrentBase, file: TorrentFileInfo, arr: Arr) 
             # Send progress to arr
             progress = info['progress']
             print(f"Progress: {progress:.2f}%")
-            if torrent.incompatibleHashSize and torrent.failIfNotCached:
-                print("Non-cached incompatible hash sized torrent")
+            if torrent.skipAvailabilityCheck and torrent.failIfNotCached:
                 torrent.delete()
                 return False
             await asyncio.sleep(1)
@@ -315,10 +336,6 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
 
         discordError(f"Error processing {file.fileInfo.filenameWithoutExt}", e)
 
-def isSeasonPack(filename):
-    # Match patterns like 'S01' or 'Season 1' but not 'S01E01'
-    return bool(re.search(r'(?:S|Season\s*)(\d{1,2})(?!\s*E\d{2})', filename, re.IGNORECASE))
-
 async def fail(torrent: TorrentBase, arr: Arr, isRadarr):
     _print = globals()['print']
 
@@ -326,8 +343,6 @@ async def fail(torrent: TorrentBase, arr: Arr, isRadarr):
         _print(f"[{torrent.__class__.__name__}] [{torrent.file.fileInfo.filenameWithoutExt}]", *values)
 
     print(f"Failing")
-
-    isSeasonPack = isSeasonPack(torrent.file.fileInfo.filename)
     
     torrentHash = torrent.getHash()
     history = await asyncio.to_thread(arr.getHistory, blackhole['historyPageSize'])
@@ -338,11 +353,17 @@ async def fail(torrent: TorrentBase, arr: Arr, isRadarr):
         print(message)
         discordError(message, torrent.file.fileInfo.filenameWithoutExt)
     else:
-        items = [item[0]] if not isRadarr and isSeasonPack else items
+        firstItem = items[0]
+        isSeasonPack = firstItem.releaseType == 'SeasonPack'
+        
+        # For season packs, we only need to fail one episode and trigger one search
+        items = [firstItem] if not isRadarr and isSeasonPack else items
 
+        # Mark items as failed
         failTasks = [asyncio.to_thread(arr.failHistoryItem, item.id) for item in items]
         await asyncio.gather(*failTasks)
 
+        # For season packs in Sonarr, trigger a new search
         if not isRadarr and isSeasonPack:
             for item in items:
                 series = await asyncio.to_thread(arr.get, item.grandparentId)

@@ -213,6 +213,11 @@ class MediaHistory(ABC):
         return self.json['data'].get('torrentInfoHash')
 
     @property
+    def releaseType(self):
+        """Get the release type from the history item data."""
+        return self.json['data'].get('releaseType')
+
+    @property
     @abstractmethod
     def parentId(self):
         pass
