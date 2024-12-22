@@ -148,6 +148,7 @@ The script accepts the following arguments:
 - `--repair-interval`: Optional interval in smart format (e.g., '1h2m3s') to wait between repairing each media file.
 - `--run-interval`: Optional interval in smart format (e.g., '1w2d3h4m5s') to run the repair process.
 - `--mode`: Choose repair mode: `symlink` or `file`. `symlink` to repair broken symlinks and `file` to repair missing files. (default: 'symlink').
+- `--season-packs`: Upgrade to season-packs when a non-season-pack is found. Only applicable in symlink mode.
 - `--include-unmonitored`: Include unmonitored media in the repair process.
 
 ### Warning
