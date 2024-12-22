@@ -289,16 +289,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                     executor.shutdown(wait=False)
 
         time.sleep(.1) # Wait before processing the file in case it isn't fully written yet.
-   #     try:
         os.renames(file.fileInfo.filePath, file.fileInfo.filePathProcessing)
-    #    except OSError as e:
-     #       if e.errno == 36: # File name too long
-      #          print(f"Error handling paths for {file.fileInfo.filenameWithoutExt}. Paths may be too long. Blacklisting.")
-       #         os.remove(file.fileInfo.filePath)
-        #        await fail(arr=arr, filename=file.fileInfo.filenameWithoutExt)
-         #       return False
-          #  raise
-
 
         with open(file.fileInfo.filePathProcessing, 'rb' if file.torrentInfo.isDotTorrentFile else 'r') as f:
             fileData = f.read()
@@ -336,47 +327,37 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
 
         discordError(f"Error processing {file.fileInfo.filenameWithoutExt}", e)
 
-async def fail(torrent: TorrentBase = None, arr: Arr = None, filename: str = None):
+
+async def fail(torrent: TorrentBase, arr: Arr):
     _print = globals()['print']
 
     def print(*values: object):
-        source = torrent.file.fileInfo.filenameWithoutExt if torrent else filename
-        _print(f"[{torrent.__class__.__name__ if torrent else 'ValidationError'}] [{source}]", *values)
+        _print(f"[{torrent.__class__.__name__}] [{torrent.file.fileInfo.filenameWithoutExt}]", *values)
 
     print(f"Failing")
-    
-    torrentHash = torrent.getHash() if torrent else None
-    cleanName = cleanFileName(filename.casefold()) if filename else None
 
-    history = await asyncio.to_thread(arr.getHistory, blackhole['historyPageSize']) if arr else []
-
-    def matchesTorrent(item):
-        if torrentHash and item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold():
-            return True
-        if torrent and cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold():
-            return True
-        return False
-
-    def matchesFilename(item):
-        if cleanName and cleanFileName(item.sourceTitle.casefold()) == cleanName:
-            return True
-        return False
-
-    items = [item for item in history if matchesTorrent(item) or matchesFilename(item)]
+    torrentHash = torrent.getHash()
+    history = await asyncio.to_thread(arr.getHistory, blackhole['historyPageSize'])
+    items = [item for item in history if
+             (item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold()) or cleanFileName(
+                 item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
     if not items:
         message = "No history items found to mark as failed. Arr will not attempt to grab an alternative."
         print(message)
-        discordError(message, torrent.file.fileInfo.filenameWithoutExt if torrent else filename)
+        discordError(message, torrent.file.fileInfo.filenameWithoutExt)
     else:
         # TODO: See if we can fail without blacklisting as cached items constantly changes
         failTasks = [asyncio.to_thread(arr.failHistoryItem, item.id) for item in items]
         await asyncio.gather(*failTasks)
     print(f"Failed")
-    
+
+
 def getFiles(isRadarr):
     print('getFiles')
-    files = (TorrentFileInfo(filename, isRadarr) for filename in os.listdir(getPath(isRadarr)) if filename not in ['processing', 'completed'])
+    files = (TorrentFileInfo(filename, isRadarr) for filename in os.listdir(getPath(isRadarr)) if
+             filename not in ['processing', 'completed'])
     return [file for file in files if file.torrentInfo.isTorrentOrMagnet]
+
 
 async def on_created(isRadarr):
     print("Enter 'on_created'")
@@ -390,7 +371,7 @@ async def on_created(isRadarr):
 
         futures: list[asyncio.Future] = []
         firstGo = True
-        
+
         # Consider switching to a queue
         while firstGo or not all(future.done() for future in futures):
             files = getFiles(isRadarr)
