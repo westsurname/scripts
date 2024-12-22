@@ -295,7 +295,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                 results = await asyncio.gather(*(processTorrent(torrent, file, arr) for torrent in torrents))
                 
                 if not any(results):
-                    await asyncio.gather(*(fail(torrent, arr) for torrent in torrents))
+                    await asyncio.gather(*(fail(torrent, arr, isRadarr) for torrent in torrents))
             else:
                 for i, constructor in enumerate(torrentConstructors):
                     isLast = (i == len(torrentConstructors) - 1)
@@ -304,7 +304,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
                     if await processTorrent(torrent, file, arr):
                         break
                     elif isLast:
-                        await fail(torrent, arr)
+                        await fail(torrent, arr, isRadarr)
 
             os.remove(file.fileInfo.filePathProcessing)
     except:
@@ -315,25 +315,39 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
 
         discordError(f"Error processing {file.fileInfo.filenameWithoutExt}", e)
 
-async def fail(torrent: TorrentBase, arr: Arr):
+def isSeasonPack(filename):
+    # Match patterns like 'S01' or 'Season 1' but not 'S01E01'
+    return bool(re.search(r'(?:S|Season\s*)(\d{1,2})(?!\s*E\d{2})', filename, re.IGNORECASE))
+
+async def fail(torrent: TorrentBase, arr: Arr, isRadarr):
     _print = globals()['print']
 
     def print(*values: object):
         _print(f"[{torrent.__class__.__name__}] [{torrent.file.fileInfo.filenameWithoutExt}]", *values)
 
     print(f"Failing")
+
+    isSeasonPack = isSeasonPack(torrent.file.fileInfo.filename)
     
     torrentHash = torrent.getHash()
     history = await asyncio.to_thread(arr.getHistory, blackhole['historyPageSize'])
     items = [item for item in history if (item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold()) or cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
+    
     if not items:
         message = "No history items found to mark as failed. Arr will not attempt to grab an alternative."
         print(message)
         discordError(message, torrent.file.fileInfo.filenameWithoutExt)
     else:
-        # TODO: See if we can fail without blacklisting as cached items constantly changes
+        items = [item[0]] if not isRadarr and isSeasonPack else items
+
         failTasks = [asyncio.to_thread(arr.failHistoryItem, item.id) for item in items]
         await asyncio.gather(*failTasks)
+
+        if not isRadarr and isSeasonPack:
+            for item in items:
+                series = await asyncio.to_thread(arr.get, item.grandparentId)
+                await asyncio.to_thread(arr.automaticSearch, series, item.parentId)
+
     print(f"Failed")
     
 def getFiles(isRadarr):
