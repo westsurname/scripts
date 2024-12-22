@@ -324,7 +324,6 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
 
         discordError(f"Error processing {file.fileInfo.filenameWithoutExt}", e)
 
-
 async def fail(torrent: TorrentBase, arr: Arr):
     _print = globals()['print']
 
@@ -335,9 +334,7 @@ async def fail(torrent: TorrentBase, arr: Arr):
 
     torrentHash = torrent.getHash()
     history = await asyncio.to_thread(arr.getHistory, blackhole['historyPageSize'])
-    items = [item for item in history if
-             (item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold()) or cleanFileName(
-                 item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
+    items = [item for item in history if(item.torrentInfoHash and item.torrentInfoHash.casefold() == torrentHash.casefold()) or cleanFileName(item.sourceTitle.casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold()]
     if not items:
         message = "No history items found to mark as failed. Arr will not attempt to grab an alternative."
         print(message)
@@ -348,13 +345,10 @@ async def fail(torrent: TorrentBase, arr: Arr):
         await asyncio.gather(*failTasks)
     print(f"Failed")
 
-
 def getFiles(isRadarr):
     print('getFiles')
-    files = (TorrentFileInfo(filename, isRadarr) for filename in os.listdir(getPath(isRadarr)) if
-             filename not in ['processing', 'completed'])
+    files = (TorrentFileInfo(filename, isRadarr) for filename in os.listdir(getPath(isRadarr)) if filename not in ['processing', 'completed'])
     return [file for file in files if file.torrentInfo.isTorrentOrMagnet]
-
 
 async def on_created(isRadarr):
     print("Enter 'on_created'")
