@@ -357,14 +357,14 @@ async def fail(torrent: TorrentBase, arr: Arr, isRadarr):
         isSeasonPack = firstItem.releaseType == 'SeasonPack'
         
         # For season packs, we only need to fail one episode and trigger one search
-        items = [firstItem] if not isRadarr and isSeasonPack else items
+        items = [firstItem] if isSeasonPack else items
 
         # Mark items as failed
         failTasks = [asyncio.to_thread(arr.failHistoryItem, item.id) for item in items]
         await asyncio.gather(*failTasks)
 
-        # For season packs in Sonarr, trigger a new search
-        if not isRadarr and isSeasonPack:
+        # For season packs, trigger a new search
+        if isSeasonPack:
             for item in items:
                 series = await asyncio.to_thread(arr.get, item.grandparentId)
                 await asyncio.to_thread(arr.automaticSearch, series, item.parentId)
