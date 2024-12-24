@@ -28,7 +28,7 @@ async def downloader(torrent, file, arr, torrentFile, shared_dict, lock):
                     lock.acquire()
                     if torrentName in shared_dict:
                         lock.release()
-                        remove_file(torrentFile, lock, shared_dict, "", webhook, current=True)
+                        remove_file(torrentFile, lock, shared_dict, "", current=True)
                         return
                     lock.release()
                     break
@@ -41,7 +41,7 @@ async def downloader(torrent, file, arr, torrentFile, shared_dict, lock):
                     if torrentFile in top_4_files:
                         torrent.getInstantAvailability()
                         if torrent.addTorrent(availableHost) is None:
-                            remove_file(torrentFile, lock, shared_dict, "", None, current=True)
+                            remove_file(torrentFile, lock, shared_dict, "", current=True)
                             return
                         info = torrent.getInfo(refresh=True)
                         torrentName = info['filename']
@@ -57,7 +57,7 @@ async def downloader(torrent, file, arr, torrentFile, shared_dict, lock):
                             lock.release()
                         break
                     if not os.path.exists(torrentFile):
-                        remove_file(torrentFile, lock, shared_dict, torrentName, webhook, current=True)
+                        remove_file(torrentFile, lock, shared_dict, torrentName, current=True)
                         return
                     await asyncio.sleep(60)
             break
@@ -70,7 +70,7 @@ async def downloader(torrent, file, arr, torrentFile, shared_dict, lock):
         count += 1
         info = torrent.getInfo(refresh=True)
         if "status" not in info:
-            remove_file(torrentFile, lock, shared_dict, torrentName, webhook, current=True)
+            remove_file(torrentFile, lock, shared_dict, torrentName, current=True)
             return
         status = info['status']
         if torrentName != info['filename']:
@@ -78,9 +78,9 @@ async def downloader(torrent, file, arr, torrentFile, shared_dict, lock):
             try:
                 if torrentName in shared_dict:
                     del shared_dict[torrentName]
-                if shared_dict and webhook:
+                if shared_dict and webhook and webhook.id:
                     webhook = discordStatusUpdate(shared_dict, webhook, edit=True)
-                elif webhook and webhook.id:
+                elif not shared_dict and webhook and webhook.id:
                     webhook = discordStatusUpdate(shared_dict, webhook, delete=True)
             finally:
                 lock.release()
@@ -94,13 +94,15 @@ async def downloader(torrent, file, arr, torrentFile, shared_dict, lock):
             if not torrent.selectFiles():
                 torrent.delete()
                 break
-        elif status == 'magnet_conversion' or status == 'queued' or status == 'downloading' or status == 'compressing' or status == 'uploading':
+        elif status == 'magnet_conversion' or status == 'queued' or status == 'compressing' or status == 'uploading':
+            await asyncio.sleep(1)
+        elif status == 'downloading':
             if progress != info['progress']:
                 progress = info['progress']
                 waitForProgress = 0
             elif waitForProgress >= blackhole['waitForProgressChange']:
                 torrent.delete()
-                remove_file(torrentFile, lock, shared_dict, torrentName, webhook, current=True)
+                remove_file(torrentFile, lock, shared_dict, torrentName, current=True)
                 return
             else:
                 waitForProgress += 1
@@ -121,6 +123,7 @@ async def downloader(torrent, file, arr, torrentFile, shared_dict, lock):
                 break
             await asyncio.sleep(60)
         elif status == 'magnet_error' or status == 'error' or status == 'dead' or status == 'virus':
+            discordError(f"Error: {file.fileInfo.filenameWithoutExt}", info)
             torrent.delete()
             break
         elif status == 'downloaded':
@@ -206,9 +209,9 @@ async def downloader(torrent, file, arr, torrentFile, shared_dict, lock):
                 print(f"infoCount == {blackhole['waitForTorrentTimeout']} - Failing")
                 torrent.delete()
                 break
-    remove_file(torrentFile, lock, shared_dict, torrentName, webhook)
+    remove_file(torrentFile, lock, shared_dict, torrentName)
     
-def remove_file(torrentFile, lock, shared_dict, torrentName, webhook, current=False):
+def remove_file(torrentFile, lock, shared_dict, torrentName, current=False):
     if os.path.exists(torrentFile):
         folder_path = os.path.dirname(torrentFile)
         all_files = glob.glob(os.path.join(folder_path, '*'))
@@ -247,11 +250,12 @@ def remove_file(torrentFile, lock, shared_dict, torrentName, webhook, current=Fa
 
     lock.acquire()
     try:
+        global webhook
         if torrentName in shared_dict:
             del shared_dict[torrentName]
         if shared_dict and webhook and webhook.id:
             webhook = discordStatusUpdate(shared_dict, webhook, edit=True)
-        elif webhook and webhook.id:
+        elif not shared_dict and webhook and webhook.id:
             webhook = discordStatusUpdate(shared_dict, webhook, delete=True)
     finally:
         lock.release()

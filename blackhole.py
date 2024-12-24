@@ -144,21 +144,56 @@ class TorrentBase(ABC):
 
     def getInstantAvailability(self, refresh=False):
         if refresh or not self._instantAvailability:
-            torrentHash = self.getHash()
-            self.print('hash:', torrentHash)
+            while True:
+                activeTorrents = self.getActiveTorrents()
+                if activeTorrents['limit'] - activeTorrents['nb'] > 0:
+                    availableHost = self.getAvailableHost()
+                    if self.addTorrent(availableHost) is None:
+                        return
+                    count = 1
+                    while True:
+                        info = self.getInfo(refresh=True)
+                        if count >= 5:
+                            self.delete()
+                            return
+                        if "status" not in info:
+                            return
+                        status = info['status']
+                        if status == 'waiting_files_selection':
+                            if not self.selectFiles():
+                                return
+                        elif status == 'magnet_conversion' or status == 'queued' or status == 'compressing' or status == 'uploading':
+                            time.sleep(1)
+                        elif status == 'downloading':
+                            time.sleep(5)
+                            info = self.getInfo(refresh=True)
+                        elif status == 'downloaded':
+                            return True
+                        elif status == 'magnet_error' or status == 'error' or status == 'dead' or status == 'virus':
+                            discordError(f"Error: {self.file.fileInfo.filenameWithoutExt}", info)
+                            time.sleep(1)
+                            self.delete()
+                            return
+                        count += 1
+                else:
+                    print("Torrent cannot be added, too many active downloads")
+                    print("activeTorrents:", activeTorrents)
+                    time.sleep(10)
+        #     torrentHash = self.getHash()
+        #     self.print('hash:', torrentHash)
 
-            if len(torrentHash) != 40:
-                self.incompatibleHashSize = True
-                return True
+        #     if len(torrentHash) != 40:
+        #         self.incompatibleHashSize = True
+        #         return True
 
-            instantAvailabilityRequest = requests.get(f"{rdHost}torrents/instantAvailability/{torrentHash}?auth_token={authToken}")
-            instantAvailabilities = instantAvailabilityRequest.json()
-            self.print('instantAvailabilities:', instantAvailabilities)
-            if not instantAvailabilities: return
-            instantAvailabilityHosters = next(iter(instantAvailabilities.values()))
-            if not instantAvailabilityHosters: return
+        #     instantAvailabilityRequest = requests.get(f"{rdHost}torrents/instantAvailability/{torrentHash}?auth_token={authToken}")
+        #     instantAvailabilities = instantAvailabilityRequest.json()
+        #     self.print('instantAvailabilities:', instantAvailabilities)
+        #     if not instantAvailabilities: return
+        #     instantAvailabilityHosters = next(iter(instantAvailabilities.values()))
+        #     if not instantAvailabilityHosters: return
 
-            self._instantAvailability = next(iter(instantAvailabilityHosters.values()))
+        #     self._instantAvailability = next(iter(instantAvailabilityHosters.values()))
 
         return self._instantAvailability
     
@@ -261,12 +296,16 @@ class Torrent(TorrentBase):
         addTorrentRequest = requests.put(f"{rdHost}torrents/addTorrent?host={host}&auth_token={authToken}", data=self.f)
         addTorrentResponse = addTorrentRequest.json()
         self.print('torrent info:', addTorrentResponse)
-        
-        if "id" in addTorrentResponse:
-            self.id = addTorrentResponse['id']
-            return self.id
-        else:
-            return None
+        return True
+        # API Not working for torrent so returning true
+        # if "id" in addTorrentResponse:
+        #     self.id = addTorrentResponse['id']
+        #     return self.id
+        # elif addTorrentResponse["error"] == "upload_error":
+        #     return 1
+        # else:
+        #     discordError(f"Error: {self.file.fileInfo.filenameWithoutExt}", addTorrentResponse)
+        #     return None
 
 
 class Magnet(TorrentBase):
@@ -286,7 +325,10 @@ class Magnet(TorrentBase):
         if "id" in addMagnetResponse:
             self.id = addMagnetResponse['id']
             return self.id
+        elif addTorrentResponse["error"] == "upload_error":
+            return True
         else:
+            discordError(f"Error: {self.file.fileInfo.filenameWithoutExt}", addMagnetResponse)
             return None
 
 def getPath(isRadarr, create=False):
@@ -385,48 +427,50 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                 print(f"Failing")
 
                 history = arr.getHistory(blackhole['historyPageSize'])['records']
+                while not history:
+                    time.sleep(5)
+                    print("Trying to grab items after 5 seconds")
+                    history = arr.getHistory(blackhole['historyPageSize'])['records']
                 items = (item for item in history if item['data'].get('torrentInfoHash', '').casefold() == torrent.getHash().casefold() or cleanFileName(item['sourceTitle'].casefold()) == torrent.file.fileInfo.filenameWithoutExt.casefold())
-                
+                #TODO Fix sonarr calls here whatever it does when it doesn't downloads other hits
+
                 if not items:
                     raise Exception("No history items found to cancel")
                 
-                first_item = None
-                total_items = 0
                 for item in items:
-                    if first_item is None:
-                        first_item = item  
-                    # TODO: See if we can fail without blacklisting as cached items constantly changes
                     arr.failHistoryItem(item['id'])
                     arr.removeFailedItem(item['id']) ## Removing from blocklist
-                    total_items += 1
 
-                if uncached and items and first_item:
-                    itemId = str(first_item.get('seriesId', first_item.get('movieId')))
-                    path = os.path.join(getPath(isRadarr), 'uncached', itemId, torrent.file.fileInfo.filename)
+                if uncached:
+                    parsedTorrent = parse(torrent.file.fileInfo.filename) 
+                    torrentName = parsedTorrent.parsed_title
+                    # itemId = str(first_item.get('seriesId', first_item.get('movieId')))
+                    path = os.path.join(getPath(isRadarr), 'uncached', torrentName, torrent.file.fileInfo.filename)
                     if not isRadarr:
-                        if total_items == 1: # and first_item["releaseType"] != "SeasonPack"
-                            episodeId = str(first_item['episodeId']) ## Fallback? data --> releaseType --> SeasonPack 
-                            path = os.path.join(getPath(isRadarr), 'uncached', itemId, episodeId, torrent.file.fileInfo.filename)
+                        if len(parsedTorrent.seasons) == 1 and len(parsedTorrent.episodes) == 1: # and first_item["releaseType"] != "SeasonPack"
+                            episodeNum = str(parsedTorrent.episodes[0]) ## Fallback? data --> releaseType --> SeasonPack 
+                            path = os.path.join(getPath(isRadarr), 'uncached', torrentName, episodeNum, torrent.file.fileInfo.filename)
                         else:
                             seasonPack = 'seasonpack'
-                            parsedTorrent = parse(torrent.file.fileInfo.filename) ## Fallback? episode --> seasonNumber 
-                            seasons = [str(pt) for pt in parsedTorrent.season]
+                            if not hasattr(parsedTorrent, 'seasons'):
+                                print("Removing coz seasons not found after parsing.")
+                                if os.path.exists(file.fileInfo.filePathProcessing):
+                                    os.remove(file.fileInfo.filePathProcessing)
+                                if os.path.exists(file.fileInfo.filePath):
+                                    os.remove(file.fileInfo.filePath)
+                                ## This won't ever happen --> unreachable
+                                return
+                            #else:
+                            seasons = [str(pt) for pt in parsedTorrent.seasons]
                             seasons = "-".join(seasons)
-                            path = os.path.join(getPath(isRadarr), 'uncached', itemId, seasonPack, seasons, torrent.file.fileInfo.filename)
+                            path = os.path.join(getPath(isRadarr), 'uncached', torrentName, seasonPack, seasons, torrent.file.fileInfo.filename)
 
                     if not os.path.exists(path):
                         os.renames(torrent.file.fileInfo.filePathProcessing, path)
                     elif os.path.exists(file.fileInfo.filePathProcessing):
                         os.remove(file.fileInfo.filePathProcessing)
+                    print("Pushed to downloader")
                     await downloader(torrent, file, arr, path, shared_dict, lock)
-                elif not first_item:
-                    arr.clearBlocklist()
-                    os.remove(file.fileInfo.filePathProcessing)
-                    if os.path.exists(file.fileInfo.filePath):
-                        os.remove(file.fileInfo.filePath)
-                    return
-                    allItems = arr.getAll()
-                    # TODO: Trigger scan for the deleted torrent which don't exist in history
                 print(f"Failed")
                             
 
