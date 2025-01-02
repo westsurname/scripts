@@ -188,7 +188,7 @@ services:
     image: ghcr.io/westsurname/scripts/plex_request_nginx:latest
     pull_policy: always
     volumes:
-      - ${PLEX_REQUEST_SSL_PATH:-/dev/null}:${PLEX_REQUEST_SSL_PATH:-/dev/null}:ro
+      - ${PLEX_SERVER_PATH}:/plex:ro
       - ./sockets:/app/sockets
     ports:
       - 8012:8000
