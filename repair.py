@@ -22,6 +22,11 @@ def parseInterval(intervalStr):
             totalSeconds += int(currentNumber) * timeDict[char]
             currentNumber = ''
     return totalSeconds
+
+def is_broken_symlink(path):
+    """Check if a symlink is broken by verifying if its target exists."""
+    return os.path.islink(path) and not os.path.exists(os.readlink(path))
+
 # Parse arguments for dry run, no confirm options, and optional intervals
 parser = argparse.ArgumentParser(description='Repair broken symlinks or missing files.')
 parser.add_argument('--dry-run', action='store_true', help='Perform a dry run without making any changes.')
@@ -29,6 +34,7 @@ parser.add_argument('--no-confirm', action='store_true', help='Execute without c
 parser.add_argument('--repair-interval', type=str, default=repair['repairInterval'], help='Optional interval in smart format (e.g. 1h2m3s) to wait between repairing each media file.')
 parser.add_argument('--run-interval', type=str, default=repair['runInterval'], help='Optional interval in smart format (e.g. 1w2d3h4m5s) to run the repair process.')
 parser.add_argument('--mode', type=str, choices=['symlink', 'file'], default='symlink', help='Choose repair mode: `symlink` or `file`. `symlink` to repair broken symlinks and `file` to repair missing files.')
+parser.add_argument('--season-packs', action='store_true', help='Upgrade to season-packs when a non-season-pack is found. Only applicable in symlink mode.')
 parser.add_argument('--include-unmonitored', action='store_true', help='Include unmonitored media in the repair process')
 args = parser.parse_args()
 
@@ -86,8 +92,20 @@ def main():
                         fullPath = item.path
                         if os.path.islink(fullPath):
                             destinationPath = os.readlink(fullPath)
-                            if ((realdebrid['enabled'] and destinationPath.startswith(realdebrid['mountTorrentsPath']) and not os.path.exists(destinationPath)) or 
-                               (torbox['enabled'] and destinationPath.startswith(torbox['mountTorrentsPath']) and not os.path.exists(os.path.realpath(fullPath)))):
+                            is_broken = False
+                            
+                            # Check if the symlink is broken (either doesn't exist or points to nothing)
+                            if not os.path.exists(fullPath) or not os.path.exists(destinationPath):
+                                is_broken = True
+                            
+                            # Check debrid-specific paths if the link isn't already known to be broken
+                            if not is_broken and (
+                                (realdebrid['enabled'] and destinationPath.startswith(realdebrid['mountTorrentsPath']) and not os.path.exists(destinationPath)) or 
+                                (torbox['enabled'] and destinationPath.startswith(torbox['mountTorrentsPath']) and not os.path.exists(os.path.realpath(fullPath)))
+                            ):
+                                is_broken = True
+                                
+                            if is_broken:
                                 brokenItems.append(os.path.realpath(fullPath))
                     else:  # file mode
                         if item.reason == 'MissingFromDisk' and item.parentId not in media.fullyAvailableChildrenIds:
@@ -127,12 +145,19 @@ def main():
                     if childId in media.fullyAvailableChildrenIds and len(parentFolders) > 1:
                         print("Title:", media.title)
                         print("Movie ID/Season Number:", childId)
-                        print("Inconsistent folders:")
+                        print("Non-season-pack folders:")
                         [print(parentFolder) for parentFolder in parentFolders]
                         print()
+                        if args.season_packs:
+                            print("Searching for season-pack")
+                            results = arr.automaticSearch(media, childId)
+                            print(results)
+
+                            if repairIntervalSeconds > 0:
+                                time.sleep(repairIntervalSeconds)
+
         except Exception:
             e = traceback.format_exc()
-
             print(f"An error occurred while processing {media.title}: {e}")
             discordError(f"[{args.mode}] An error occurred while processing {media.title}", e)
 
@@ -151,7 +176,6 @@ if runIntervalSeconds > 0:
             time.sleep(runIntervalSeconds)
         except Exception:
             e = traceback.format_exc()
-
             print(f"An error occurred in the main loop: {e}")
             discordError(f"[{args.mode}] An error occurred in the main loop", e)
             time.sleep(runIntervalSeconds)  # Still wait before retrying
