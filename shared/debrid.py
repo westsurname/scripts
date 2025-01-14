@@ -108,7 +108,7 @@ class FileBase(ABC):
         self.file = file
         self.failIfNotCached = failIfNotCached
         self.onlyLargestFile = onlyLargestFile
-        self.incompatibleHashSize = False
+        self.skipAvailabilityCheck = False
         self.id = None
         self._info = None
         self._hash = None
@@ -177,31 +177,11 @@ class RealDebrid(FileBase):
         return not not self.addFile()
 
     def _getInstantAvailability(self, refresh=False):
-        if refresh or not self._instantAvailability:
-            torrentHash = self.getHash()
-            self.print('hash:', torrentHash)
+        torrentHash = self.getHash()
+        self.print('hash:', torrentHash)
+        self.skipAvailabilityCheck = True
 
-            if len(torrentHash) != 40 or True:
-                self.incompatibleHashSize = True
-                return True
-
-            instantAvailabilityRequest = retryRequest(
-                lambda: requests.get(urljoin(realdebrid['host'], f"torrents/instantAvailability/{torrentHash}"), headers=self.headers),
-                print=self.print
-            )
-            if instantAvailabilityRequest is None:
-                return None
-
-            instantAvailabilities = instantAvailabilityRequest.json()
-            self.print('instantAvailabilities:', instantAvailabilities)
-            if not instantAvailabilities: return
-
-            instantAvailabilityHosters = next(iter(instantAvailabilities.values()))
-            if not instantAvailabilityHosters: return
-
-            self._instantAvailability = next(iter(instantAvailabilityHosters.values()))
-
-        return self._instantAvailability
+        return True
     
     def _getAvailableHost(self):
         availableHostsRequest = retryRequest(
@@ -252,15 +232,6 @@ class RealDebrid(FileBase):
         largestMediaFileId = str(largestMediaFile['id'])
         self.print('only largest file:', self.onlyLargestFile)
         self.print('largest file:', largestMediaFile)
-
-        if self.failIfNotCached and not self.incompatibleHashSize:
-            targetFileIds = {largestMediaFileId} if self.onlyLargestFile else mediaFileIds
-            if not any(set(fileGroup.keys()) == targetFileIds for fileGroup in self._instantAvailability):
-                extraFilesGroup = next((fileGroup for fileGroup in self._instantAvailability if largestMediaFileId in fileGroup.keys()), None)
-                if self.onlyLargestFile and extraFilesGroup:
-                    self.print('extra files required for cache:', extraFilesGroup)
-                    discordUpdate('Extra files required for cache:', extraFilesGroup)
-                return False
             
         if self.onlyLargestFile and len(mediaFiles) > 1:
             discordUpdate('largest file:', largestMediaFile['path'])
@@ -446,7 +417,7 @@ class Torbox(FileBase):
         return not not deleteRequest
 
     async def getFilePath(self):
-        filepath = (await self.getInfo())['files'][0]['name']
+        filename = (await self.getInfo())['files'][0]['name'].split("/")[0]
 
         folderPathMountFilenameTorrent = os.path.join(self.mountTorrentsPath, filepath)
        
@@ -496,7 +467,7 @@ class Torbox(FileBase):
             'queuedDL', 'checkingDL', 'forcedDL', 'checkingResumeData', 'moving'
         ]:
             return self.STATUS_DOWNLOADING
-        elif status in ['error', 'stalledUP', 'stalledDL', 'stalled (no seeds)', 'missingFiles']:
+        elif status in ['error', 'stalledUP', 'stalledDL', 'stalled (no seeds)', 'missingFiles', 'failed']:
             return self.STATUS_ERROR
         return status
 

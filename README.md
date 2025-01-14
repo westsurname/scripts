@@ -33,10 +33,11 @@
      - `PLEX_HOST`: The URL to general Plex services.
      - `PLEX_METADATA_HOST`: The URL to the Plex metadata service.
      - `PLEX_SERVER_HOST`: The host address of your Plex server.
-     - `PLEX_SERVER_MACHINE_ID`: The unique machine identifier for your Plex server.
+     - `PLEX_SERVER_MACHINE_ID`: The processed unique machine identifier for your Plex server.
      - `PLEX_SERVER_API_KEY`: Your Plex server's API key for authentication.
      - `PLEX_SERVER_MOVIE_LIBRARY_ID`: The library ID for movies on your Plex server.
      - `PLEX_SERVER_TV_SHOW_LIBRARY_ID`: The library ID for TV shows on your Plex server.
+     - `PLEX_SERVER_PATH`: The path to your 'Plex Media Server' folder containing Cache/cert-v2.p12 (e.g., /var/lib/plexmediaserver/Library/Application Support/Plex Media Server).
 
    - **Overseerr** - Watchlist, Plex Authentication, Plex Request, Reclaim Space:
      - `OVERSEERR_HOST`: The host address of your Overseeer instance.
@@ -85,13 +86,6 @@
      - `BLACKHOLE_WAIT_FOR_TORRENT_TIMEOUT`: The timeout in seconds to wait for a torrent to be successful before failing.
      - `BLACKHOLE_HISTORY_PAGE_SIZE`: The number of history items to pull at once when attempting to mark a download as failed.
 
-   - **Plex Request** - Plex Request:
-     - `PLEX_REQUEST_SSL_PATH` (Optional): The path to SSL certificates for Plex Request. If provided, this directory should contain the following files:
-       - `fullchain.pem`: The full certificate chain file.
-       - `privkey.pem`: The private key file.
-       - `chain.pem`: The certificate chain file.
-       - `dhparam.pem`: The Diffie-Hellman parameters file.
-
    - **Discord** - Blackhole, Watchlist, Plex Authentication, Plex Request, Monitor Ram, Reclaim Space:
      - `DISCORD_ENABLED`: Set to `true` to enable Discord error notifications.
      - `DISCORD_UPDATE_ENABLED`: Set to `true` to enable update notifications as well on Discord.
@@ -132,6 +126,30 @@
     python3 python_watcher.py
     ```
 
+## Plex Request
+
+### Setup
+
+1. Ensure your Plex Media Server is properly configured and running.
+
+2. In your `.env` file, make sure the following variables are set:
+   - `PLEX_SERVER_PATH`: Points to your 'Plex Media Server' directory containing the certificate
+   - `PLEX_SERVER_MACHINE_ID`: Your Plex server's machine identifier
+   - Other required variables as listed in the configuration section
+
+3. Start the Plex Request services:
+   ```bash
+   docker-compose --profile plex_request up -d
+   ```
+
+### SSL Configuration
+The service automatically handles SSL by:
+- Using your Plex Media Server's certificate (cert-v2.p12) from the Cache directory
+- Converting it to the required format for nginx
+- Automatically detecting and handling certificate updates
+
+No manual SSL configuration is needed as long as your Plex Media Server is properly configured.
+
 ## Repair
 
 ### Usage
@@ -148,6 +166,7 @@ The script accepts the following arguments:
 - `--repair-interval`: Optional interval in smart format (e.g., '1h2m3s') to wait between repairing each media file.
 - `--run-interval`: Optional interval in smart format (e.g., '1w2d3h4m5s') to run the repair process.
 - `--mode`: Choose repair mode: `symlink` or `file`. `symlink` to repair broken symlinks and `file` to repair missing files. (default: 'symlink').
+- `--season-packs`: Upgrade to season-packs when a non-season-pack is found. Only applicable in symlink mode.
 - `--include-unmonitored`: Include unmonitored media in the repair process.
 
 ### Warning

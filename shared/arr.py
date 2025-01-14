@@ -213,8 +213,19 @@ class MediaHistory(ABC):
         return self.json['data'].get('torrentInfoHash')
 
     @property
+    def releaseType(self):
+        """Get the release type from the history item data."""
+        return self.json['data'].get('releaseType')
+
+    @property
     @abstractmethod
     def parentId(self):
+        pass
+
+    @property
+    @abstractmethod
+    def grandparentId(self):
+        """Get the top-level ID (series ID for episodes, same as parentId for movies)."""
         pass
 
     @property
@@ -228,6 +239,11 @@ class MovieHistory(MediaHistory):
         return self.json['movieId']
 
     @property
+    def grandparentId(self):
+        """For movies, grandparent ID is the same as parent ID."""
+        return self.parentId
+
+    @property
     def isFileDeletedEvent(self):
         return self.eventType == 'movieFileDeleted'
 
@@ -236,6 +252,12 @@ class EpisodeHistory(MediaHistory):
     # Requires includeGrandchildDetails to be true
     def parentId(self):
         return self.json['episode']['seasonNumber']
+
+    @property
+    # Requires includeGrandchildDetails to be true
+    def grandparentId(self):
+        """Get the series ID from the history item."""
+        return self.json['episode']['seriesId']
 
     @property
     def isFileDeletedEvent(self):
