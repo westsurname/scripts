@@ -38,6 +38,7 @@
      - `PLEX_SERVER_MOVIE_LIBRARY_ID`: The library ID for movies on your Plex server.
      - `PLEX_SERVER_TV_SHOW_LIBRARY_ID`: The library ID for TV shows on your Plex server.
      - `PLEX_SERVER_PATH`: The path to your 'Plex Media Server' folder containing Cache/cert-v2.p12 (e.g., /var/lib/plexmediaserver/Library/Application Support/Plex Media Server).
+     - `PLEX_SERVER_DEFAULT_RATING_KEY`: Any valid Plex rating key on your server.
 
    - **Overseerr** - Watchlist, Plex Authentication, Plex Request, Reclaim Space:
      - `OVERSEERR_HOST`: The host address of your Overseeer instance.
