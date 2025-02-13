@@ -22,6 +22,11 @@ def parseInterval(intervalStr):
             totalSeconds += int(currentNumber) * timeDict[char]
             currentNumber = ''
     return totalSeconds
+
+def is_broken_symlink(path):
+    """Check if a symlink is broken by verifying if its target exists."""
+    return os.path.islink(path) and not os.path.exists(os.readlink(path))
+
 # Parse arguments for dry run, no confirm options, and optional intervals
 parser = argparse.ArgumentParser(description='Repair broken symlinks or missing files.')
 parser.add_argument('--dry-run', action='store_true', help='Perform a dry run without making any changes.')
@@ -87,8 +92,20 @@ def main():
                         fullPath = item.path
                         if os.path.islink(fullPath):
                             destinationPath = os.readlink(fullPath)
-                            if ((realdebrid['enabled'] and destinationPath.startswith(realdebrid['mountTorrentsPath']) and not os.path.exists(destinationPath)) or 
-                               (torbox['enabled'] and destinationPath.startswith(torbox['mountTorrentsPath']) and not os.path.exists(os.path.realpath(fullPath)))):
+                            is_broken = False
+                            
+                            # Check if the symlink is broken (either doesn't exist or points to nothing)
+                            if not os.path.exists(fullPath) or not os.path.exists(destinationPath):
+                                is_broken = True
+                            
+                            # Check debrid-specific paths if the link isn't already known to be broken
+                            if not is_broken and (
+                                (realdebrid['enabled'] and destinationPath.startswith(realdebrid['mountTorrentsPath']) and not os.path.exists(destinationPath)) or 
+                                (torbox['enabled'] and destinationPath.startswith(torbox['mountTorrentsPath']) and not os.path.exists(os.path.realpath(fullPath)))
+                            ):
+                                is_broken = True
+                                
+                            if is_broken:
                                 brokenItems.append(os.path.realpath(fullPath))
                     else:  # file mode
                         if item.reason == 'MissingFromDisk' and item.parentId not in media.fullyAvailableChildrenIds:
@@ -141,7 +158,6 @@ def main():
 
         except Exception:
             e = traceback.format_exc()
-
             print(f"An error occurred while processing {media.title}: {e}")
             discordError(f"[{args.mode}] An error occurred while processing {media.title}", e)
 
@@ -160,7 +176,6 @@ if runIntervalSeconds > 0:
             time.sleep(runIntervalSeconds)
         except Exception:
             e = traceback.format_exc()
-
             print(f"An error occurred in the main loop: {e}")
             discordError(f"[{args.mode}] An error occurred in the main loop", e)
             time.sleep(runIntervalSeconds)  # Still wait before retrying
