@@ -12,19 +12,19 @@ def get_completed_parent_directory(use_radarr, use_radarr4k, use_radarranime, us
     elif use_radarr:
         return f"{blackhole['baseWatchPath']}/{blackhole['radarrPath']}/completed"
     elif use_radarr4k:
-        return f"{blackhole['baseWatchPath']}/{blackhole['radarrPath']}4k/completed"
+        return f"{blackhole['baseWatchPath']}/{blackhole['radarrPath']} 4k/completed"
     elif use_radarranime:
-        return f"{blackhole['baseWatchPath']}/{blackhole['radarrPath']}anime/completed"
+        return f"{blackhole['baseWatchPath']}/{blackhole['radarrPath']} anime/completed"
     elif use_radarrmux:
-        return f"{blackhole['baseWatchPath']}/{blackhole['radarrPath']}mux/completed"
+        return f"{blackhole['baseWatchPath']}/{blackhole['radarrPath']} mux/completed"
     elif use_sonarr:
         return f"{blackhole['baseWatchPath']}/{blackhole['sonarrPath']}/completed"
     elif use_sonarr4k:
-        return f"{blackhole['baseWatchPath']}/{blackhole['sonarrPath']}4k/completed"
+        return f"{blackhole['baseWatchPath']}/{blackhole['sonarrPath']} 4k/completed"
     elif use_sonarranime:
-        return f"{blackhole['baseWatchPath']}/{blackhole['sonarrPath']}anime/completed"
+        return f"{blackhole['baseWatchPath']}/{blackhole['sonarrPath']} anime/completed"
     elif use_sonarrmux:
-        return f"{blackhole['baseWatchPath']}/{blackhole['sonarrPath']}mux/completed"
+        return f"{blackhole['baseWatchPath']}/{blackhole['sonarrPath']} mux/completed"
     else:
         return None
 
