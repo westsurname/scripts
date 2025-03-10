@@ -153,181 +153,7 @@ sock = Sock(app)
 # Create singleton middleware instance
 wsMiddleware = PlexWebSocketMiddleware()
 
-# async def checkRequestStatus(ratingKey, mediaType, mediaTypeNum):
-#     try:
-#         # Generate a unique UUID for this refresh session
-#         uuid = "21af4e69-69ed-4e10-8918-1c3260974ca5"
-        
-#         # Timeline notifications
-#         await wsMiddleware.injectNotification({
-#             "NotificationContainer": {
-#                 "type": "timeline",
-#                 "size": 1,
-#                 "TimelineEntry": [{
-#                     "identifier": "com.plexapp.plugins.library",
-#                     "sectionID": "1",
-#                     "itemID": ratingKey,
-#                     "type": 1,
-#                     "title": "Refreshing",
-#                     "state": 3,
-#                     "metadataState": "queued",
-#                     "updatedAt": int(datetime.now().timestamp())
-#                 }]
-#             }
-#         })
-
-#         await wsMiddleware.injectNotification({
-#             "NotificationContainer": {
-#                 "type": "timeline",
-#                 "size": 1,
-#                 "TimelineEntry": [{
-#                     "identifier": "com.plexapp.plugins.library",
-#                     "sectionID": "1",
-#                     "itemID": ratingKey,
-#                     "type": 1,
-#                     "title": "Refreshing",
-#                     "state": 5,
-#                     "updatedAt": int(datetime.now().timestamp())
-#                 }]
-#             }
-#         })
-
-#         # Activity started
-#         await wsMiddleware.injectNotification({
-#             "NotificationContainer": {
-#                 "type": "activity",
-#                 "size": 1,
-#                 "ActivityNotification": [{
-#                     "event": "started",
-#                     "uuid": uuid,
-#                     "Activity": {
-#                         "uuid": uuid,
-#                         "type": "library.refresh.items",
-#                         "cancellable": False,
-#                         "userID": 1,
-#                         "title": "Refreshing",
-#                         "subtitle": "",
-#                         "progress": 0
-#                     }
-#                 }]
-#             }
-#         })
-
-#         # Activity checking files
-#         await wsMiddleware.injectNotification({
-#             "NotificationContainer": {
-#                 "type": "activity",
-#                 "size": 1,
-#                 "ActivityNotification": [{
-#                     "event": "updated",
-#                     "uuid": uuid,
-#                     "Activity": {
-#                         "uuid": uuid,
-#                         "type": "library.refresh.items",
-#                         "cancellable": False,
-#                         "userID": 1,
-#                         "title": "Refreshing",
-#                         "subtitle": "Checking files",
-#                         "progress": 0,
-#                         "Context": {
-#                             "key": f"/library/request/{mediaType}/{mediaTypeNum}/{ratingKey}"
-#                         }
-#                     }
-#                 }]
-#             }
-#         })
-
-#         await asyncio.sleep(0.5)  # Small delay to simulate progress
-
-#         # Activity refreshing metadata
-#         await wsMiddleware.injectNotification({
-#             "NotificationContainer": {
-#                 "type": "activity",
-#                 "size": 1,
-#                 "ActivityNotification": [{
-#                     "event": "updated",
-#                     "uuid": uuid,
-#                     "Activity": {
-#                         "uuid": uuid,
-#                         "type": "library.refresh.items",
-#                         "cancellable": False,
-#                         "userID": 1,
-#                         "title": "Refreshing",
-#                         "subtitle": "Refreshing local metadata",
-#                         "progress": 33,
-#                         "Context": {
-#                             "accessible": False,
-#                             "exists": False,
-#                             "key": f"/library/request/{mediaType}/{mediaTypeNum}/{ratingKey}"
-#                         }
-#                     }
-#                 }]
-#             }
-#         })
-
-#         await asyncio.sleep(0.5)  # Small delay to simulate progress
-
-#         # Activity media analysis
-#         await wsMiddleware.injectNotification({
-#             "NotificationContainer": {
-#                 "type": "activity",
-#                 "size": 1,
-#                 "ActivityNotification": [{
-#                     "event": "updated",
-#                     "uuid": uuid,
-#                     "Activity": {
-#                         "uuid": uuid,
-#                         "type": "library.refresh.items",
-#                         "cancellable": False,
-#                         "userID": 1,
-#                         "title": "Refreshing",
-#                         "subtitle": "Refreshing media analysis",
-#                         "progress": 66,
-#                         "Context": {
-#                             "accessible": False,
-#                             "exists": False,
-#                             "key": f"/library/request/{mediaType}/{mediaTypeNum}/{ratingKey}",
-#                             "refreshed": False
-#                         }
-#                     }
-#                 }]
-#             }
-#         })
-
-#         await asyncio.sleep(0.5)  # Small delay to simulate progress
-
-#         # Activity completed
-#         await wsMiddleware.injectNotification({
-#             "NotificationContainer": {
-#                 "type": "activity",
-#                 "size": 1,
-#                 "ActivityNotification": [{
-#                     "event": "ended",
-#                     "uuid": uuid,
-#                     "Activity": {
-#                         "uuid": uuid,
-#                         "type": "library.refresh.items",
-#                         "cancellable": False,
-#                         "userID": 1,
-#                         "title": "Refreshing",
-#                         "subtitle": "Refreshing media analysis",
-#                         "progress": 100,
-#                         "Context": {
-#                             "accessible": False,
-#                             "analyzed": False,
-#                             "exists": False,
-#                             "key": f"/library/request/{mediaType}/{mediaTypeNum}/{ratingKey}",
-#                             "refreshed": False
-#                         }
-#                     }
-#                 }]
-#             }
-#         })
-        
-#     except Exception as e:
-#         print(f"Error checking request status: {e}")
-
-async def checkRequestStatus(ratingKey, mediaType, mediaTypeNum):
+async def checkRequestStatus(ratingKey, mediaType, mediaTypeNum, requestKey):
     try:
         # Generate a unique UUID for this refresh session
         uuid_str = str(uuid.uuid4())
@@ -341,7 +167,7 @@ async def checkRequestStatus(ratingKey, mediaType, mediaTypeNum):
                     {
                         "identifier": "com.plexapp.plugins.library",
                         "sectionID": "1",
-                        "itemID": "12065",
+                        "itemID": requestKey,
                         "type": 1,
                         "title": "Big Buck Bunny (2008)",
                         "state": 3,
@@ -352,6 +178,8 @@ async def checkRequestStatus(ratingKey, mediaType, mediaTypeNum):
             }
         })
 
+        # await asyncio.sleep(5)
+
         await wsMiddleware.injectNotification({
             "NotificationContainer": {
                 "type": "timeline",
@@ -360,7 +188,7 @@ async def checkRequestStatus(ratingKey, mediaType, mediaTypeNum):
                     {
                         "identifier": "com.plexapp.plugins.library",
                         "sectionID": "1",
-                        "itemID": "12065",
+                        "itemID": requestKey,
                         "type": 1,
                         "title": "Big Buck Bunny (2008)",
                         "state": 5,
@@ -369,149 +197,6 @@ async def checkRequestStatus(ratingKey, mediaType, mediaTypeNum):
                 ]
             }
         })
-
-        # # Activity started
-        # await wsMiddleware.injectNotification({
-        #     "NotificationContainer": {
-        #         "type": "activity",
-        #         "size": 1,
-        #         "ActivityNotification": [
-        #             {
-        #                 "event": "started",
-        #                 "uuid": uuid_str,
-        #                 "Activity": {
-        #                     "uuid": uuid_str,
-        #                     "type": "library.refresh.items",
-        #                     "cancellable": False,
-        #                     "userID": 1,
-        #                     "title": "Refreshing",
-        #                     "subtitle": "",
-        #                     "progress": 0
-        #                 }
-        #             }
-        #         ]
-        #     }
-        # })
-
-        # # Activity checking files
-        # await wsMiddleware.injectNotification({
-        #     "NotificationContainer": {
-        #         "type": "activity",
-        #         "size": 1,
-        #         "ActivityNotification": [
-        #             {
-        #                 "event": "updated",
-        #                 "uuid": uuid_str,
-        #                 "Activity": {
-        #                     "uuid": uuid_str,
-        #                     "type": "library.refresh.items",
-        #                     "cancellable": False,
-        #                     "userID": 1,
-        #                     "title": "Refreshing",
-        #                     "subtitle": "Checking files",
-        #                     "progress": 0,
-        #                     "Context": {
-        #                         "key": "/library/metadata/12065"
-        #                     }
-        #                 }
-        #             }
-        #         ]
-        #     }
-        # })
-
-        # await asyncio.sleep(5)  # Small delay to simulate progress
-
-        # # Activity refreshing metadata
-        # await wsMiddleware.injectNotification({
-        #     "NotificationContainer": {
-        #         "type": "activity",
-        #         "size": 1,
-        #         "ActivityNotification": [
-        #             {
-        #                 "event": "updated",
-        #                 "uuid": uuid_str,
-        #                 "Activity": {
-        #                     "uuid": uuid_str,
-        #                     "type": "library.refresh.items",
-        #                     "cancellable": False,
-        #                     "userID": 1,
-        #                     "title": "Refreshing",
-        #                     "subtitle": "Refreshing local metadata",
-        #                     "progress": 33,
-        #                     "Context": {
-        #                         "accessible": True,
-        #                         "exists": True,
-        #                         "key": "/library/metadata/12065"
-        #                     }
-        #                 }
-        #             }
-        #         ]
-        #     }
-        # })
-
-        # await asyncio.sleep(5)  # Small delay to simulate progress
-
-        # # Activity media analysis
-        # await wsMiddleware.injectNotification({
-        #     "NotificationContainer": {
-        #         "type": "activity",
-        #         "size": 1,
-        #         "ActivityNotification": [
-        #             {
-        #                 "event": "updated",
-        #                 "uuid": uuid_str,
-        #                 "Activity": {
-        #                     "uuid": uuid_str,
-        #                     "type": "library.refresh.items",
-        #                     "cancellable": False,
-        #                     "userID": 1,
-        #                     "title": "Refreshing",
-        #                     "subtitle": "Refreshing media analysis",
-        #                     "progress": 66,
-        #                     "Context": {
-        #                         "accessible": True,
-        #                         "exists": True,
-        #                         "key": "/library/metadata/12065",
-        #                         "refreshed": False
-        #                     }
-        #                 }
-        #             }
-        #         ]
-        #     }
-        # })
-
-        # await asyncio.sleep(5)  # Small delay to simulate progress
-
-        # # Activity completed
-        # await wsMiddleware.injectNotification({
-        #     "NotificationContainer": {
-        #         "type": "activity",
-        #         "size": 1,
-        #         "ActivityNotification": [
-        #             {
-        #                 "event": "ended",
-        #                 "uuid": uuid_str,
-        #                 "Activity": {
-        #                     "uuid": uuid_str,
-        #                     "type": "library.refresh.items",
-        #                     "cancellable": False,
-        #                     "userID": 1,
-        #                     "title": "Refreshing",
-        #                     "subtitle": "Refreshing media analysis",
-        #                     "progress": 100,
-        #                     "Context": {
-        #                         "accessible": True,
-        #                         "analyzed": False,
-        #                         "exists": True,
-        #                         "key": "/library/metadata/12065",
-        #                         "refreshed": False
-        #                     }
-        #                 }
-        #             }
-        #         ]
-        #     }
-        # })
-
                 
     except Exception as e:
         print(f"Error checking request status: {e}")
@@ -544,14 +229,15 @@ def websocketEndpoint(ws):
     # Run the async handler in the event loop
     loop.run_until_complete(handleWebsocket())
 
-@app.route('/library/request/<mediaType>/<mediaTypeNum>/<ratingKey>', methods=['GET'])
-@app.route('/library/request/<mediaType>/<mediaTypeNum>/<ratingKey>/<children>', methods=['GET'])
-@app.route('/library/request/<mediaType>/<mediaTypeNum>/<ratingKey>/season/<season>', methods=['GET'])
-@app.route('/library/request/<mediaType>/<mediaTypeNum>/<ratingKey>/season/<season>/<children>', methods=['GET'])
+@app.route('/library/metadata/<mediaType>-<mediaTypeNum>-<ratingKey>', methods=['GET'])
+@app.route('/library/metadata/<mediaType>-<mediaTypeNum>-<ratingKey>/<children>', methods=['GET'])
+@app.route('/library/metadata/<mediaType>-<mediaTypeNum>-<ratingKey>-season-<season>', methods=['GET'])
+@app.route('/library/metadata/<mediaType>-<mediaTypeNum>-<ratingKey>-season-<season>/<children>', methods=['GET'])
 def libraryRequest(mediaType, mediaTypeNum, ratingKey, season=None, children=None):
     print('libraryRequest')
     token = request.headers.get('X-Plex-Token', None) or request.args.get('X-Plex-Token', None)
     originalRatingKey = ratingKey
+    requestKey = f"{mediaType}-{mediaTypeNum}-{originalRatingKey}{f'-season-{season}' if mediaTypeNum == mediaTypeNums['season'] else ''}"
 
     try:
         if not mediaTypeNum or mediaTypeNum not in mediaTypeNums.values():
@@ -594,7 +280,7 @@ def libraryRequest(mediaType, mediaTypeNum, ratingKey, season=None, children=Non
 
             if not children:    
                 if mediaTypeNum == mediaTypeNums['season']:   
-                    mediaContainer['Metadata'][0]['key'] = f"/library/request/{mediaType}/{mediaTypeNum}/{ratingKey}/season/{season}/children"
+                    mediaContainer['Metadata'][0]['key'] = f"/library/metadata/{mediaType}-{mediaTypeNum}-{ratingKey}-season-{season}/children"
 
                 response = jsonify(all)
                 response.headers.add('Access-Control-Allow-Origin', 'https://app.plex.tv')
@@ -647,9 +333,9 @@ def libraryRequest(mediaType, mediaTypeNum, ratingKey, season=None, children=Non
                         item['title'] = f"{title} - Requesting..."
 
                     if mediaTypeNum == mediaTypeNums['season']:
-                        item['key'] = f"/library/request/{mediaType}/{mediaTypeNum}/{originalRatingKey}/season/{season}/children"
+                        item['key'] = f"/library/metadata/{mediaType}-{mediaTypeNum}-{originalRatingKey}-season-{season}/children"
                     else:
-                        item['key'] = f"/library/request/{mediaType}/{mediaTypeNum}/{originalRatingKey}/children" 
+                        item['key'] = f"/library/metadata/{mediaType}-{mediaTypeNum}-{originalRatingKey}/children" 
             
             response = jsonify(metadata)
             response.headers.add('Access-Control-Allow-Origin', 'https://app.plex.tv')
@@ -666,49 +352,50 @@ def libraryRequest(mediaType, mediaTypeNum, ratingKey, season=None, children=Non
     finally:
         if not locals().get('skipRequest', False):
             title = locals().get('title', 'Untitled')
-            requestMedia(token, originalRatingKey, mediaType, season, title)
+            requestMedia(token, originalRatingKey, mediaType, season, title, mediaTypeNum, requestKey)
  
 
-def requestMedia(token, ratingKey, mediaType, season, title):
+def requestMedia(token, ratingKey, mediaType, season, title, mediaTypeNum, requestKey):
     print('requestMedia')
 
-
-    # loop = asyncio.new_event_loop()
-    # asyncio.set_event_loop(loop)
-    
-    # Start status checking in background
-    async def runStatusCheck():
-        await asyncio.sleep(10)
-        mediaTypeNum = mediaTypeNums['movie'] if mediaType == 'movie' else mediaTypeNums['season'] if season else mediaTypeNums['show']
-        await checkRequestStatus(ratingKey, mediaType, mediaTypeNum)
-        
-    # Run the async handler in the event loop
-    # loop.run_until_complete(runStatusCheck())
-
-    # await runStatusCheck()
-    Thread(target=lambda: asyncio.run(runStatusCheck())).start()
-
-    # try:
-    #     cacheKey = ratingKey if mediaType == 'movie' else f"{ratingKey}_{season}"
-    #     recentlyRequested = cache.get(cacheKey) or []
-    #     if token not in recentlyRequested:
-    #         user = getUserForPlexServerToken(token)
-    #         metadataHeaders = {**plexHeaders, 'X-Plex-Token': plex['serverApiKey']}
+    try:
+        cacheKey = ratingKey if mediaType == 'movie' else f"{ratingKey}_{season}"
+        recentlyRequested = cache.get(cacheKey) or []
+        if token not in recentlyRequested:
+            user = getUserForPlexServerToken(token)
+            metadataHeaders = {**plexHeaders, 'X-Plex-Token': plex['serverApiKey']}
             
-    #         requestItem(user, ratingKey, datetime.now().timestamp(), metadataHeaders, getSeason=lambda: [int(season)])
+            requestItem(user, ratingKey, datetime.now().timestamp(), metadataHeaders, getSeason=lambda: [int(season)])
 
-    #         recentlyRequested.append(token)
-    #         cache.set(cacheKey, recentlyRequested)
+            recentlyRequested.append(token)
+            cache.set(cacheKey, recentlyRequested)
+
+            # loop = asyncio.new_event_loop()
+            # asyncio.set_event_loop(loop)
             
-    #         print(f"{title} - Requested by {user['displayName']} via Plex Request")
-    #         discordUpdate(f"{title} - Requested by {user['displayName']} via Plex Request", f"User Id: {user['id']}, Media Type: {mediaType}, {f'Season: {season},' if season else ''} Rating Key: {ratingKey}")
+            # Start status checking in background
+            async def runStatusCheck():
+                attempts = 0
+                while attempts < 30:  # Run for 5 minutes (300 seconds)
+                    attempts += 1
+                    await asyncio.sleep(10)
+                    await checkRequestStatus(ratingKey, mediaType, mediaTypeNum, requestKey)
+                
+            # Run the async handler in the event loop
+            # loop.run_until_complete(runStatusCheck())
+
+            # await runStatusCheck()
+            Thread(target=lambda: asyncio.run(runStatusCheck())).start()
+            
+            print(f"{title} - Requested by {user['displayName']} via Plex Request")
+            discordUpdate(f"{title} - Requested by {user['displayName']} via Plex Request", f"User Id: {user['id']}, Media Type: {mediaType}, {f'Season: {season},' if season else ''} Rating Key: {ratingKey}")
            
-    # except:
-    #     e = traceback.format_exc()
-    #     print(f"Error in request")
-    #     print(e)
+    except:
+        e = traceback.format_exc()
+        print(f"Error in request")
+        print(e)
 
-    #     discordError(f"Error in request", e)
+        discordError(f"Error in request", e)
 
 @app.route('/library/all', methods=['GET'])
 def all():
@@ -746,11 +433,12 @@ def all():
 
                     additionalMetadata = metadataAllRequest.json()['MediaContainer']['Metadata'][0]
                     if mediaTypeNum == mediaTypeNums['season'] or mediaTypeNum == mediaTypeNums['episode']:
-                        additionalMetadata['key'] = f"/library/request/{mediaType}/{mediaTypeNum}/{guid}/season/{season}"
+                        additionalMetadata['key'] = f"/library/metadata/{mediaType}-{mediaTypeNum}-{guid}-season-{season}"
+                        additionalMetadata['ratingKey'] = f"{mediaType}-{mediaTypeNum}-{guid}-season-{season}"
                     else:
-                        additionalMetadata['key'] = f"/library/request/{mediaType}/{mediaTypeNum}/{guid}"
+                        additionalMetadata['key'] = f"/library/metadata/{mediaType}-{mediaTypeNum}-{guid}"
+                        additionalMetadata['ratingKey'] = f"{mediaType}-{mediaTypeNum}-{guid}"
 
-                    additionalMetadata['ratingKey'] = "12065"
                     additionalMetadata['librarySectionTitle'] = "Request Season :" if mediaTypeNum == mediaTypeNums['episode'] else "Request :"
                     additionalMetadata['librarySectionID'] = libraryId
                     additionalMetadata['librarySectionKey'] = f"/library/sections/{libraryId}"
@@ -873,8 +561,8 @@ def addRequestableSeasons(mediaContainer, seasons, ratingKey):
     for item in allSeasons:
         if item['index'] not in existingMetadataIndices:
             item['title'] = f"Request - {item.get('title', '')}" 
-            item['key'] = f"/library/request/show/{mediaTypeNums['season']}/{ratingKey}/season/{item['index']}"
-            item['ratingKey'] = "12065"
+            item['key'] = f"/library/metadata/show-{mediaTypeNums['season']}-{ratingKey}-season-{item['index']}"
+            item['ratingKey'] = f"show-{mediaTypeNums['season']}-{ratingKey}-season-{item['index']}"
             item.pop('Guid', None)
             item.pop('Image', None)
             item.pop('Role', None)
