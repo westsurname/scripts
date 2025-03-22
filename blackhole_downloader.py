@@ -91,7 +91,7 @@ async def downloader(torrent, file, arr, torrentFile, shared_dict, lock):
             torrent.delete()
             break
         if status == 'waiting_files_selection':
-            if not torrent.selectFiles():
+            if not torrent.selectFiles(uncached=True):
                 torrent.delete()
                 break
         elif status == 'magnet_conversion' or status == 'queued' or status == 'compressing' or status == 'uploading':
@@ -137,7 +137,7 @@ async def downloader(torrent, file, arr, torrentFile, shared_dict, lock):
             folderPathMountOriginalFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], originalFilename)
             folderPathMountOriginalFilenameWithoutExtTorrent = os.path.join(blackhole['rdMountTorrentsPath'], os.path.splitext(originalFilename)[0])
 
-            while existsCount <= blackhole['waitForTorrentTimeout']:
+            while True:
                 existsCount += 1
                 
                 if os.path.exists(folderPathMountFilenameTorrent) and os.listdir(folderPathMountFilenameTorrent):
@@ -194,9 +194,10 @@ async def downloader(torrent, file, arr, torrentFile, shared_dict, lock):
                     await refreshArr(arr)
                     break
                 
-                if existsCount == blackhole['rdMountRefreshSeconds'] + 1:
+                if existsCount >= blackhole['rdMountRefreshSeconds'] + 1:
                     print(f"Torrent folder not found in filesystem: {file.fileInfo.filenameWithoutExt}")
                     discordError("Torrent folder not found in filesystem", file.fileInfo.filenameWithoutExt)
+                    return False
 
                 await asyncio.sleep(1)
             break

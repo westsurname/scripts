@@ -161,6 +161,7 @@ class TorrentBase(ABC):
                         status = info['status']
                         if status == 'waiting_files_selection':
                             if not self.selectFiles():
+                                self.delete()
                                 return
                         elif status == 'magnet_conversion' or status == 'queued' or status == 'compressing' or status == 'uploading':
                             time.sleep(1)
@@ -168,6 +169,7 @@ class TorrentBase(ABC):
                             time.sleep(5)
                             info = self.getInfo(refresh=True)
                         elif status == 'downloaded':
+                            self.delete()
                             return True
                         elif status == 'magnet_error' or status == 'error' or status == 'dead' or status == 'virus':
                             discordError(f"Error: {self.file.fileInfo.filenameWithoutExt}", info)
@@ -238,15 +240,31 @@ class TorrentBase(ABC):
 
         return allTorrents
 
-    def selectFiles(self):
+    def selectFiles(self, uncached=False):
         self._enforceId()
 
         info = self.getInfo()
         self.print('files:', info['files'])
         mediaFiles = [file for file in info['files'] if os.path.splitext(file['path'])[1] in mediaExtensions]
         
+        if info['files'] and not mediaFiles and not uncached:
+            self.print('no media files found --> pushing to uncached')
+            discordError(f"Error: {self.file.fileInfo.filenameWithoutExt}", "No media files found --> pushing to uncached")
+            return False
+        elif not info['files'] and uncached:
+            total_time = 0
+            while info['files'] or total_time == 300:
+                info = self.getInfo(refresh=True)
+                mediaFiles = [file for file in info['files'] if os.path.splitext(file['path'])[1] in mediaExtensions]
+                time.sleep(10)
+                total_time += 10
+            if not info['files']:
+                self.print("unable to parse magnet files")
+                discordError(f"Error: {self.file.fileInfo.filenameWithoutExt}", "Unable to parse magnet files")
+                return False
         if not mediaFiles:
-            self.print('no media files found')
+            self.print("no media files found --> prolly virus bruh")
+            discordError(f"Error: {self.file.fileInfo.filenameWithoutExt}", "No media Files Found in uncached")
             return False
 
         mediaFileIds = {str(file['id']) for file in mediaFiles}
@@ -325,7 +343,7 @@ class Magnet(TorrentBase):
         if "id" in addMagnetResponse:
             self.id = addMagnetResponse['id']
             return self.id
-        elif addTorrentResponse["error"] == "upload_error":
+        elif addMagnetResponse["error"] == "upload_error":
             return True
         else:
             discordError(f"Error: {self.file.fileInfo.filenameWithoutExt}", addMagnetResponse)
@@ -522,7 +540,7 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                         folderPathMountOriginalFilenameTorrent = os.path.join(blackhole['rdMountTorrentsPath'], originalFilename)
                         folderPathMountOriginalFilenameWithoutExtTorrent = os.path.join(blackhole['rdMountTorrentsPath'], os.path.splitext(originalFilename)[0])
 
-                        while existsCount <= blackhole['waitForTorrentTimeout']:
+                        while True:
                             existsCount += 1
                            
                             if os.path.exists(folderPathMountFilenameTorrent) and os.listdir(folderPathMountFilenameTorrent):
@@ -598,9 +616,10 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr, failIfNotCached
                                 # await asyncio.get_running_loop().run_in_executor(None, copyFiles, file, folderPathMountTorrent, arr)
                                 break
                             
-                            if existsCount == blackhole['rdMountRefreshSeconds'] + 1:
+                            if existsCount >= blackhole['rdMountRefreshSeconds'] + 1:
                                 print(f"Torrent folder not found in filesystem: {file.fileInfo.filenameWithoutExt}")
                                 discordError("Torrent folder not found in filesystem", file.fileInfo.filenameWithoutExt)
+                                return False
 
                             await asyncio.sleep(1)
                         break
