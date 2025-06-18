@@ -200,9 +200,9 @@ def main():
                         if not args.season_packs:
                             season_pack_pending_messages[media.title][childId].extend(realPaths)
                         elif args.season_packs:
-                            [print(path) for path in realPaths]
                             print_section(f"Searching for season-pack for {media.title} (Season {childId})", "-")
-                            if not args.dry_run:
+                            [print(path) for path in realPaths]
+                            if not args.dry_run and (args.no_confirm or input("Do you want to initiate a search for a season-pack? (y/n): ").lower() == 'y'):
                                 results = arr.automaticSearch(media, childId)
                                 runAsyncInThread(checkAutomaticSearchStatus(arr, results['id'], media.title, childId))
 
