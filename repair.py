@@ -4,7 +4,7 @@ import time
 import traceback
 from shared.debrid import validateRealdebridMountTorrentsPath, validateTorboxMountTorrentsPath
 from shared.arr import Sonarr, Radarr
-from shared.discord import discordUpdate, discordError
+from shared.discord import discordUpdate as _discordUpdate, discordError as _discordError
 from shared.shared import repair, realdebrid, torbox, intersperse, ensureTuple
 from datetime import datetime
 
@@ -35,8 +35,25 @@ args = parser.parse_args()
 
 _print = print
 
-def print(*values: object):
-    _print(f"[{datetime.now()}] [{args.mode}]", *values)
+
+def print(*values: object, level: str = "INFO"):
+    prefix = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [{args.mode}] [{level}] "
+    _print(prefix, *values)
+    
+def print_section(title: str, char: str = "="):
+    """Print a section header."""
+    line = char * (len(title) + 4)
+    print()
+    print(line)
+    print(f"  {title.upper()}")
+    print(line)
+    print()
+        
+def discordUpdate(title: str, message: str = None):
+    return _discordUpdate(f"[{args.mode}] {title}", message)
+
+def discordError(title: str, message: str = None):
+    return _discordError(f"[{args.mode}] {title}", message)
 
 if not args.repair_interval and not args.run_interval:
     print("Running repair once")
@@ -56,24 +73,31 @@ except Exception as e:
     exit(1)
 
 def main():
+    print_section("Starting Repair Process")
+    if args.dry_run:
+        print("DRY RUN: No changes will be made", level="WARNING")
     if unsafe():
-        print("One or both debrid services are not working properly. Skipping repair.")
-        discordError(f"[{args.mode}] One or both debrid services are not working properly. Skipping repair.")
+        error_msg = "One or both debrid services are not working properly. Skipping repair."
+        print(error_msg, level="ERROR")
+        discordError(error_msg)
         return
     
-    print("Collecting media...")
+    print("Collecting media from Sonarr and Radarr...")
     sonarr = Sonarr()
     radarr = Radarr()
     sonarrMedia = [(sonarr, media) for media in sonarr.getAll() if args.include_unmonitored or media.anyMonitoredChildren]
     radarrMedia = [(radarr, media) for media in radarr.getAll() if args.include_unmonitored or media.anyMonitoredChildren]
-    print("Finished collecting media.")
+    print(f"✓ Collected {len(sonarrMedia)} Sonarr items and {len(radarrMedia)} Radarr items", level="SUCCESS")
+
+    season_pack_pending_messages = []
     
     for arr, media in intersperse(sonarrMedia, radarrMedia):
         try:
             if unsafe():
-                print("One or both debrid services are not working properly. Skipping repair.")
-                discordError(f"[{args.mode}] One or both debrid services are not working properly. Skipping repair.")
-                return 
+                error_msg = "One or more debrid services are not working properly. Aborting repair."
+                print(error_msg, level="ERROR")
+                discordError(error_msg)
+                return
 
             getItems = lambda media, childId: arr.getFiles(media=media, childId=childId) if args.mode == 'symlink' else arr.getHistory(media=media, childId=childId, includeGrandchildDetails=True)
             childrenIds = media.childrenIds if args.include_unmonitored else media.monitoredChildrenIds
@@ -95,16 +119,17 @@ def main():
                             brokenItems.append(item.sourceTitle)
 
                 if brokenItems:
-                    print("Title:", media.title)
-                    print("Movie ID/Season Number:", childId)
-                    print("Broken items:")
+                    msg = f"Repairing {media.title} (ID: {childId})"
+                    msg2 = f"Found {len(brokenItems)} broken items:"
+                    print_section(msg, "-")
+                    discordUpdate(msg, msg2)
+                    print(msg2)
                     [print(item) for item in brokenItems]
                     print()
                     if args.dry_run or args.no_confirm or input("Do you want to delete and re-grab? (y/n): ").lower() == 'y':
                         if not args.dry_run:
-                            discordUpdate(f"[{args.mode}] Repairing {media.title}: {childId}")
                             if args.mode == 'symlink':
-                                print("Deleting files:")
+                                print("Deleting broken symlinks...")
                                 [print(item.path) for item in childItems]
                                 results = arr.deleteFiles(childItems)
                             print("Re-monitoring")
@@ -113,11 +138,12 @@ def main():
                             arr.put(media)
                             media.setChildMonitored(childId, True)
                             arr.put(media)
-                            print("Searching for new files")
+                            print(f"Searching for replacement files for {media.title}")
                             results = arr.automaticSearch(media, childId)
                             print(results)
                             
                             if repairIntervalSeconds > 0:
+                                print(f"Waiting {args.repair_interval} before next repair...")
                                 time.sleep(repairIntervalSeconds)
                     else:
                         print("Skipping")
@@ -126,27 +152,36 @@ def main():
                     realPaths = [os.path.realpath(item.path) for item in childItems]
                     parentFolders = set(os.path.dirname(path) for path in realPaths)
                     if childId in media.fullyAvailableChildrenIds and len(parentFolders) > 1:
-                        print("Title:", media.title)
-                        print("Movie ID/Season Number:", childId)
-                        print("Non-season-pack folders:")
-                        [print(parentFolder) for parentFolder in parentFolders]
-                        print()
+                        msg = f"{media.title} has {len(parentFolders)} non-season-pack folders." + ("" if args.season_packs else " Run with --season-packs to upgrade to season-pack.")
+                        if args.season_packs:
+                            print(msg)
+                        else:
+                            season_pack_pending_messages.append(msg)
+
                         if args.season_packs:
                             print("Searching for season-pack")
                             results = arr.automaticSearch(media, childId)
                             print(results)
 
                             if repairIntervalSeconds > 0:
+                                print(f"Waiting {args.repair_interval} before next repair...")
                                 time.sleep(repairIntervalSeconds)
 
         except Exception:
             e = traceback.format_exc()
+            error_msg = f"An error occurred while processing {media.title}: "
+            print(error_msg + e)
+            discordError(error_msg, e)
+            
+    if not args.season_packs and season_pack_pending_messages:
+        print_section("Season Packs Start")
+        for message in season_pack_pending_messages:
+            print(message)
+        print_section("Season Packs End")
 
-            print(f"An error occurred while processing {media.title}: {e}")
-            discordError(f"[{args.mode}] An error occurred while processing {media.title}", e)
-
-    print("Repair complete")
-    discordUpdate(f"[{args.mode}] Repair complete")
+    msg = "Repair complete" + (" with no broken items found" if not brokenItems else "")
+    print_section(msg)
+    discordUpdate(msg)
 
 def unsafe():
     return (args.mode == 'symlink' and 
@@ -157,12 +192,14 @@ if runIntervalSeconds > 0:
     while True:
         try:
             main()
+            print("Run Interval: Waiting for " + args.run_interval + " before next run...")
             time.sleep(runIntervalSeconds)
         except Exception:
             e = traceback.format_exc()
 
-            print(f"An error occurred in the main loop: {e}")
-            discordError(f"[{args.mode}] An error occurred in the main loop", e)
+            error_msg = "An error occurred in the main loop: "
+            print(error_msg + e)
+            discordError(error_msg, e)
             time.sleep(runIntervalSeconds)  # Still wait before retrying
 else:
     main()
