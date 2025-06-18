@@ -217,7 +217,7 @@ def main():
     if not args.season_packs and season_pack_pending_messages:
         print_section("Season Packs Start")
         print("The following media has non season-pack")
-        print("Run the script with --season-packs arguemnt to upgrade to season-pack")
+        print("Run the script with --season-packs argument to upgrade to season-pack")
         for message in season_pack_pending_messages:
             print(message)
         print_section("Season Packs End")
@@ -235,7 +235,7 @@ if runIntervalSeconds > 0:
     while True:
         try:
             main()
-            print("Run Interval: Waiting for " + args.run_interval + " before next run...")
+            print(f"Waiting for {args.run_interval} before next run...")
             time.sleep(runIntervalSeconds)
         except Exception:
             e = traceback.format_exc()
