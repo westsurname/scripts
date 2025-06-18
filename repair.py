@@ -100,29 +100,28 @@ def main():
                     print("Broken items:")
                     [print(item) for item in brokenItems]
                     print()
-                    if args.dry_run or args.no_confirm or input("Do you want to delete and re-grab? (y/n): ").lower() == 'y':
-                        if not args.dry_run:
-                            discordUpdate(f"[{args.mode}] Repairing {media.title}: {childId}")
-                            if args.mode == 'symlink':
-                                print("Deleting files:")
-                                [print(item.path) for item in childItems]
-                                results = arr.deleteFiles(childItems)
-                            print("Re-monitoring")
-                            media = arr.get(media.id)
-                            media.setChildMonitored(childId, False)
-                            arr.put(media)
-                            media.setChildMonitored(childId, True)
-                            arr.put(media)
-                            print("Searching for new files")
-                            results = arr.automaticSearch(media, childId)
-                            print(results)
-                            
-                            if repairIntervalSeconds > 0:
-                                time.sleep(repairIntervalSeconds)
-                    else:
+                    if not args.dry_run and (args.no_confirm or input("Do you want to delete and re-grab? (y/n): ").lower() == 'y'):
+                        discordUpdate(f"[{args.mode}] Repairing {media.title}: {childId}")
+                        if args.mode == 'symlink':
+                            print("Deleting files:")
+                            [print(item.path) for item in childItems]
+                            results = arr.deleteFiles(childItems)
+                        print("Re-monitoring")
+                        media = arr.get(media.id)
+                        media.setChildMonitored(childId, False)
+                        arr.put(media)
+                        media.setChildMonitored(childId, True)
+                        arr.put(media)
+                        print("Searching for new files")
+                        results = arr.automaticSearch(media, childId)
+                        print(results)
+                        
+                        if repairIntervalSeconds > 0:
+                            time.sleep(repairIntervalSeconds)
+                    elif not args.dry_run:
                         print("Skipping")
                     print()
-                elif args.mode == 'symlink':
+                elif args.season_packs and args.mode == 'symlink':
                     realPaths = [os.path.realpath(item.path) for item in childItems]
                     parentFolders = set(os.path.dirname(path) for path in realPaths)
                     if childId in media.fullyAvailableChildrenIds and len(parentFolders) > 1:
@@ -131,13 +130,15 @@ def main():
                         print("Non-season-pack folders:")
                         [print(parentFolder) for parentFolder in parentFolders]
                         print()
-                        if args.season_packs:
+                        if not args.dry_run and (args.no_confirm or input("Do you want to initiate a search for a season-pack? (y/n): ").lower() == 'y'):
                             print("Searching for season-pack")
                             results = arr.automaticSearch(media, childId)
                             print(results)
 
                             if repairIntervalSeconds > 0:
                                 time.sleep(repairIntervalSeconds)
+                        elif not args.dry_run:
+                            print("Skipping")
 
         except Exception:
             e = traceback.format_exc()
