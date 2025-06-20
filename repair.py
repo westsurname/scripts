@@ -150,12 +150,14 @@ def main():
             for childId in childrenIds:
                 brokenItems = []
                 childItems = list(getItems(media=media, childId=childId))
+                parentFolders = set()
 
                 for item in childItems:
                     if args.mode == 'symlink':
                         fullPath = item.path
                         if os.path.islink(fullPath):
                             destinationPath = os.readlink(fullPath)
+                            parentFolders.add(os.path.dirname(destinationPath))
                             if ((realdebrid['enabled'] and destinationPath.startswith(realdebrid['mountTorrentsPath']) and not os.path.exists(destinationPath)) or 
                                (torbox['enabled'] and destinationPath.startswith(torbox['mountTorrentsPath']) and not os.path.exists(os.path.realpath(fullPath)))):
                                 brokenItems.append(os.path.realpath(fullPath))
@@ -194,14 +196,13 @@ def main():
                         print("Skipping")
                     print()
                 elif args.mode == 'symlink':
-                    realPaths = [os.path.realpath(item.path) for item in childItems]
-                    parentFolders = set(os.path.dirname(path) for path in realPaths)
                     if childId in media.fullyAvailableChildrenIds and len(parentFolders) > 1:
                         if not args.season_packs:
-                            season_pack_pending_messages[media.title][childId].extend(realPaths)
+                            season_pack_pending_messages[media.title][childId].extend(parentFolders)
                         elif args.season_packs:
                             print_section(f"Searching for season-pack for {media.title} (Season {childId})", "-")
-                            [print(path) for path in realPaths]
+                            print("Non-season-pack folders:")
+                            [print(path) for path in parentFolders]
                             if not args.dry_run and (args.no_confirm or input("Do you want to initiate a search for a season-pack? (y/n): ").lower() == 'y'):
                                 results = arr.automaticSearch(media, childId)
                                 runAsyncInThread(checkAutomaticSearchStatus(arr, results['id'], media.title, childId))
@@ -220,19 +221,19 @@ def main():
             discordError(error_msg, e)
             
     if not args.season_packs and season_pack_pending_messages:
-        print_section("Season Packs Start")
+        print_section("Non-season-pack folders")
         print("The following media has non season-pack folders.")
         print("Run the script with --season-packs argument to upgrade to season-pack")
         print()
         for title, childIdFolders in season_pack_pending_messages.items():
-            print_section(f"Season Packs for {title}")
+            print_section(f"Non-season-pack folders for {title}", "-")
             for childId, folders in childIdFolders.items():
                 if folders:
-                    print(f"Season {childId} Non-season-pack folders:")
-                    print('/'.join(folders[0].split('/')[:-2]) + '/')
-                    [print('/'.join(folder.split('/')[-2:])) for folder in folders]
+                    print(f"Season {childId} folders:")
+                    print("Inside",'/'.join(folders[0].split('/')[:-1]) + '/')
+                    [print('/' + folder.split('/')[-1] + '/') for folder in folders]
                     print()
-        print_section("Season Packs End")
+        print_section("Non-season-pack folders End")
 
     msg = "Repair complete" + (" with no broken items found" if not fixed_broken_items else "")
     print_section(msg)
