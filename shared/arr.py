@@ -287,15 +287,9 @@ class Arr(ABC):
     def put(self, media: Media):
         retryRequest(lambda: requests.put(f"{self.host}/api/v3/{self.endpoint}/{media.id}?apiKey={self.apiKey}&moveFiles=true", json=media.json))
 
-    def getFiles(self, media: Media, childId: int=None):
+    def getFiles(self, media: Media, childId: int = None):
         response = retryRequest(lambda: requests.get(f"{self.host}/api/v3/{self.fileEndpoint}?apiKey={self.apiKey}&{self.endpoint}Id={media.id}"))
-
-        files = map(self.fileConstructor, response.json())
-
-        if childId != None and childId != media.id:
-            files = filter(lambda file: file.parentId == childId, files)
-
-        return files
+        return map(self.fileConstructor, response.json())
 
     def deleteFiles(self, files: List[MediaFile]):
         fileIds = [file.id for file in files]
@@ -349,6 +343,12 @@ class Sonarr(Arr):
 
     def _automaticSearchJson(self, media: Media, childId: int):
         return {"name": f"{self.childName}Search", f"{self.endpoint}Id": media.id, self.childIdName: childId}
+    
+    def getFiles(self, media: Media, childId: int = None):
+        files = super().getFiles(media)
+        if childId is not None:
+            files = filter(lambda file: file.parentId == childId, files)
+        return files
 
 class Radarr(Arr):
     host = radarr['host']
