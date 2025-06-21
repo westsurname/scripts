@@ -26,12 +26,11 @@ def parseInterval(intervalStr):
             currentNumber = ''
     return totalSeconds
 
-async def checkAutomaticSearchStatus(arr, commandId: int, mediaTitle: str, seasonNumber: int, waitSeconds: int = 30, maxAttempts: int = 3):
+async def checkAutomaticSearchStatus(arr, commandId: int, mediaTitle: str, mediaDescriptor: str, waitSeconds: int = 30, maxAttempts: int = 3):
     """
     Check the automatic search status up to maxAttempts, waiting waitSeconds between each check.
     Stops early if searchSuccessful is no longer None.
     """
-    seasonNumber = f"(Season {seasonNumber})" if isinstance(arr, Sonarr) else ""
     for attempt in range(0, maxAttempts):
         await asyncio.sleep(waitSeconds)
         searchStatus = arr.getCommandResults(commandId)
@@ -44,16 +43,16 @@ async def checkAutomaticSearchStatus(arr, commandId: int, mediaTitle: str, seaso
         if searchSuccessful is True:
             if "0 reports downloaded." in message:
                 return False, message
-            successMsg = f"Search for {mediaTitle} {seasonNumber} succeeded: {message}"
+            successMsg = f"Search for {mediaTitle} {mediaDescriptor} succeeded: {message}"
             print(successMsg, level="SUCCESS")
             return
         elif searchSuccessful is False:
-            errorMsg = f"Search for {mediaTitle} {seasonNumber} failed: {message}"
+            errorMsg = f"Search for {mediaTitle} {mediaDescriptor} failed: {message}"
             print(errorMsg, level="ERROR")
             discordError(errorMsg)
             return
     # If we exit the loop, the status was still None after maxAttempts
-    print(f"Search status for {mediaTitle} {seasonNumber} still unknown after {maxAttempts*waitSeconds} seconds. Not checking anymore.", level="WARNING")
+    print(f"Search status for {mediaTitle} {mediaDescriptor} still unknown after {maxAttempts*waitSeconds} seconds. Not checking anymore.", level="WARNING")
     
 def runAsyncInThread(coro):
     """
@@ -156,13 +155,14 @@ def main():
                 brokenItems = []
                 childItems = list(getItems(media=media, childId=childId))
                 parentFolders = set()
+                mediaDescriptor = f"(Season {childId})" if isinstance(arr, Sonarr) else f"(Movie ID: {childId})"
 
                 for item in childItems:
                     if args.mode == 'symlink':
                         fullPath = item.path
                         if os.path.islink(fullPath):
                             destinationPath = os.readlink(fullPath)
-                            parentFolders.add(os.path.dirname(destinationPath))
+                            parentFolders.add(os.path.dirname(os.path.realpath(fullPath)))
                             if ((realdebrid['enabled'] and destinationPath.startswith(realdebrid['mountTorrentsPath']) and not os.path.exists(destinationPath)) or 
                                (torbox['enabled'] and destinationPath.startswith(torbox['mountTorrentsPath']) and not os.path.exists(os.path.realpath(fullPath)))):
                                 brokenItems.append(os.path.realpath(fullPath))
@@ -172,31 +172,30 @@ def main():
 
                 if brokenItems:
                     fixedBrokenItems = True
-                    msg = f"Starting repair for {media.title} (Movie ID / Season Number: {childId})"
+                    msg = f"Repairing {media.title} {mediaDescriptor}"
                     msg2 = f"Found {len(brokenItems)} broken items:"
                     printSection(msg, "-")
                     print(msg2)
                     [print(item) for item in brokenItems]
-                    if args.dry_run or args.no_confirm or input("Do you want to delete and re-grab? (y/n): ").lower() == 'y':
-                        if not args.dry_run:
-                            discordUpdate(msg, msg2)
-                            if args.mode == 'symlink':
-                                print("Deleting symlinks...")
-                                [print(item.path) for item in childItems]
-                                results = arr.deleteFiles(childItems)
-                            print("Re-monitoring")
-                            media = arr.get(media.id)
-                            media.setChildMonitored(childId, False)
-                            arr.put(media)
-                            media.setChildMonitored(childId, True)
-                            arr.put(media)
-                            print(f"Searching for replacement files for {media.title}")
-                            results = arr.automaticSearch(media, childId)
-                            runAsyncInThread(checkAutomaticSearchStatus(arr, results['id'], media.title, childId))
-                            
-                            if repairIntervalSeconds > 0:
-                                print(f"Waiting {args.repair_interval} before next repair...")
-                                time.sleep(repairIntervalSeconds)
+                    if not args.dry_run and (args.no_confirm or input("Do you want to delete and re-grab? (y/n): ").lower() == 'y'):
+                        discordUpdate(msg, msg2)
+                        if args.mode == 'symlink':
+                            print("Deleting files:")
+                            [print(item.path) for item in childItems]
+                            results = arr.deleteFiles(childItems)
+                        print("Re-monitoring")
+                        media = arr.get(media.id)
+                        media.setChildMonitored(childId, False)
+                        arr.put(media)
+                        media.setChildMonitored(childId, True)
+                        arr.put(media)
+                        print(f"Searching for replacement files for {media.title}")
+                        results = arr.automaticSearch(media, childId)
+                        runAsyncInThread(checkAutomaticSearchStatus(arr, results['id'], media.title, mediaDescriptor))
+                        
+                        if repairIntervalSeconds > 0:
+                            print(f"Waiting {args.repair_interval} before next repair...")
+                            time.sleep(repairIntervalSeconds)
                     else:
                         print("Skipping")
                     print()
