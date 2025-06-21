@@ -31,23 +31,23 @@ async def checkAutomaticSearchStatus(arr, commandId: int, mediaTitle: str, media
     Check the automatic search status up to maxAttempts, waiting waitSeconds between each check.
     Stops early if searchSuccessful is no longer None.
     """
-    for attempt in range(0, maxAttempts):
+    for _ in range(maxAttempts):
         await asyncio.sleep(waitSeconds)
-        searchStatus = arr.getCommandResults(commandId)
+        result = arr.getCommandResults(commandId)
         
-        searchSuccessful = True if (status := searchStatus.get("status")) == "completed" else False if status == "failed" else None
-        if searchSuccessful is None:
+        status = result.get("status")
+        if status not in ["completed", "failed"]:
             continue
-        message = searchStatus.get("message", "")
+        message = result.get("message", "")
 
-        if searchSuccessful and "0 reports downloaded." not in message:
-            successMsg = f"Search for {mediaTitle} {mediaDescriptor} succeeded: {message}"
-            print(successMsg, level="SUCCESS")
-            return
-        else:
+        if status == "failed" or "0 reports downloaded." in message:
             errorMsg = f"Search for {mediaTitle} {mediaDescriptor} failed: {message}"
             print(errorMsg, level="ERROR")
             discordError(errorMsg)
+            return
+        else:
+            successMsg = f"Search for {mediaTitle} {mediaDescriptor} succeeded: {message}"
+            print(successMsg, level="SUCCESS")
             return
     # If we exit the loop, the status was still None after maxAttempts
     print(f"Search status for {mediaTitle} {mediaDescriptor} still unknown after {maxAttempts*waitSeconds} seconds. Not checking anymore.", level="WARNING")
@@ -63,8 +63,7 @@ def runAsyncInThread(coro):
         loop.run_until_complete(coro)
         loop.close()
     
-    thread = threading.Thread(target=threadTarget)
-    thread.daemon = True  # Optional: thread won’t block program exit
+    thread = threading.Thread(target=threadTarget, daemon=True)
     thread.start()
     return thread
 
@@ -82,9 +81,9 @@ args = parser.parse_args()
 _print = print
 
 def print(*values: object, level: str = "INFO"):
-    prefix = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [{args.mode}] [{level}] "
+    prefix = f"[{datetime.now():%Y-%m-%d %H:%M:%S}] [{args.mode}] [{level}]"
     _print(prefix, *values)
-    
+
 def printSection(title: str, char: str = "="):
     """Print a section header."""
     line = char * (len(title) + 4)
@@ -197,24 +196,23 @@ def main():
                     else:
                         print("Skipping")
                     print()
-                elif args.mode == 'symlink':
-                    if childId in media.fullyAvailableChildrenIds and len(parentFolders) > 1:
-                        if not args.season_packs:
-                            seasonPackPendingMessages[media.title][childId].extend(parentFolders)
-                        else:
-                            printSection(f"Searching for season-pack for {media.title} (Season {childId})", "-")
-                            print("Non-season-pack folders:")
-                            [print(path) for path in parentFolders]
-                            if not args.dry_run and (args.no_confirm or input("Do you want to initiate a search for a season-pack? (y/n): ").lower() == 'y'):
-                                results = arr.automaticSearch(media, childId)
-                                runAsyncInThread(checkAutomaticSearchStatus(arr, results['id'], media.title, childId))
+                elif args.mode == 'symlink' and childId in media.fullyAvailableChildrenIds and len(parentFolders) > 1:
+                    if not args.season_packs:
+                        seasonPackPendingMessages[media.title][childId].extend(parentFolders)
+                    else:
+                        printSection(f"Searching for season-pack for {media.title} {mediaDescriptor}", "-")
+                        print("Non-season-pack folders:")
+                        [print(path) for path in parentFolders]
+                        if not args.dry_run and (args.no_confirm or input("Do you want to initiate a search for a season-pack? (y/n): ").lower() == 'y'):
+                            results = arr.automaticSearch(media, childId)
+                            runAsyncInThread(checkAutomaticSearchStatus(arr, results['id'], media.title, mediaDescriptor))
 
-                                if repairIntervalSeconds > 0:
-                                    print(f"Waiting {args.repair_interval} before next repair...")
-                                    time.sleep(repairIntervalSeconds)
-                            else:
-                                print("Skipping")
-                            print()
+                            if repairIntervalSeconds > 0:
+                                print(f"Waiting {args.repair_interval} before next repair...")
+                                time.sleep(repairIntervalSeconds)
+                        else:
+                            print("Skipping")
+                        print()
 
         except Exception:
             e = traceback.format_exc()
