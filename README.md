@@ -55,13 +55,22 @@
 
    - **Tautulli** - Reclaim Space:
      - `TAUTULLI_HOST`: The host address of your Tautulli instance.
-     - `TAUTULLI_API_KEY`: The API key for accessing Tautulli.
-
-   - **RealDebrid** - Blackhole, Repair:
+     - `TAUTULLI_API_KEY`: The API key for accessing Tautulli.   - **RealDebrid** - Blackhole, Repair:
      - `REALDEBRID_ENABLED`: Set to `true` to enable RealDebrid services.
      - `REALDEBRID_HOST`: The host address for the RealDebrid API.
      - `REALDEBRID_API_KEY`: The API key for accessing RealDebrid services.
      - `REALDEBRID_MOUNT_TORRENTS_PATH`: The path to the RealDebrid mount torrents folder.
+     
+     **Multiple Real-Debrid Accounts Support:**
+     To configure multiple Real-Debrid accounts for load balancing and rate limit bypass:
+     - `REALDEBRID_HOST_2`: Host for second account
+     - `REALDEBRID_API_KEY_2`: API key for second account  
+     - `REALDEBRID_MOUNT_TORRENTS_PATH_2`: Mount path for second account
+     - `REALDEBRID_HOST_3`: Host for third account (and so on...)
+     - `REALDEBRID_API_KEY_3`: API key for third account
+     - `REALDEBRID_MOUNT_TORRENTS_PATH_3`: Mount path for third account
+     
+     The system will automatically load balance requests across all healthy accounts and handle rate limits gracefully. Use `python3 monitor_realdebrid.py --status` to check account health.
 
    - **TorBox** - Blackhole, Repair:
      - `TORBOX_ENABLED`: Set to `true` to enable TorBox services.
@@ -244,3 +253,13 @@ python3 delete_non_linked_folders.py /path/to/destination/folder --src-folder /p
 ```
 
 In this example, the script will check the "/path/to/destination/folder" directory againts the "/path/to/source/folder" directory to find directories that are not linked to. It will print the the directories that would be deleted without actually deleting them, because the --dry-run flag is set.
+
+
+## Real-Debrid Account Management
+
+The blackhole script now supports multiple Real-Debrid accounts for load balancing and rate limit mitigation. When multiple accounts are configured, the system will:
+
+- Automatically distribute torrent requests across healthy accounts
+- Handle rate limits by switching to other accounts
+- Perform health checks and disable failing accounts
+- Search for torrents across all account mount paths (useful with Zurg multi-account setups)

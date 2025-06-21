@@ -8,7 +8,9 @@ env.read_env()
 default_pattern = r"<[a-z0-9_]+>"
 
 def commonEnvParser(value, convert=None):
-    if value is not None and re.match(default_pattern, value):
+    if value is None:
+        return None
+    if re.match(default_pattern, value):
         return None
     return convert(value) if convert else value
 
@@ -75,8 +77,64 @@ realdebrid = {
     'enabled': env.bool('REALDEBRID_ENABLED', default=True),
     'host': env.string('REALDEBRID_HOST', default=None),
     'apiKey': env.string('REALDEBRID_API_KEY', default=None),
-    'mountTorrentsPath': env.string('REALDEBRID_MOUNT_TORRENTS_PATH', env.string('BLACKHOLE_RD_MOUNT_TORRENTS_PATH', default=None))
+    'mountTorrentsPath': env.string('REALDEBRID_MOUNT_TORRENTS_PATH', env.string('BLACKHOLE_RD_MOUNT_TORRENTS_PATH', default=None)),
+    # Multiple accounts support
+    'accounts': []
 }
+
+# Parse multiple Real-Debrid accounts
+def parseRealdebridAccounts():
+    accounts = []
+    i = 1
+    while True:
+        # Support both numbered and non-numbered environment variables
+        host_key = f'REALDEBRID_HOST_{i}' if i > 1 else 'REALDEBRID_HOST'
+        api_key_key = f'REALDEBRID_API_KEY_{i}' if i > 1 else 'REALDEBRID_API_KEY'
+        mount_path_key = f'REALDEBRID_MOUNT_TORRENTS_PATH_{i}' if i > 1 else 'REALDEBRID_MOUNT_TORRENTS_PATH'
+        
+        host = env.string(host_key, default=None)
+        apiKey = env.string(api_key_key, default=None)
+        mountPath = env.string(mount_path_key, env.string('BLACKHOLE_RD_MOUNT_TORRENTS_PATH', default=None) if i == 1 else None)
+        
+        if not host or not apiKey or not mountPath:
+            if i == 1:
+                # First account is required if RealDebrid is enabled
+                print(f"Warning: Real-Debrid account {i} missing required environment variables")
+                break
+            else:
+                # No more accounts found
+                break
+        
+        # Validate that the mount path exists
+        if not os.path.exists(mountPath):
+            print(f"Warning: Real-Debrid account {i} mount path does not exist: {mountPath}")
+        
+        accounts.append({
+            'id': i,
+            'host': host,
+            'apiKey': apiKey,
+            'mountTorrentsPath': mountPath,
+            'enabled': True,
+            'rateLimited': False,
+            'lastUsed': 0,
+            'consecutiveFailures': 0,
+            'lastHealthCheck': 0
+        })
+        
+        print(f"Configured Real-Debrid account {i}: {host} -> {mountPath}")
+        i += 1
+    
+    print(f"Total Real-Debrid accounts configured: {len(accounts)}")
+    return accounts
+
+# Initialize multiple accounts
+if realdebrid['enabled']:
+    realdebrid['accounts'] = parseRealdebridAccounts()
+    # Keep backward compatibility
+    if realdebrid['accounts']:
+        realdebrid['host'] = realdebrid['accounts'][0]['host']
+        realdebrid['apiKey'] = realdebrid['accounts'][0]['apiKey']
+        realdebrid['mountTorrentsPath'] = realdebrid['accounts'][0]['mountTorrentsPath']
 
 torbox = {
     'enabled': env.bool('TORBOX_ENABLED', default=None),
