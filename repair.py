@@ -28,8 +28,8 @@ def parseInterval(intervalStr):
 
 async def checkAutomaticSearchStatus(arr, commandId: int, mediaTitle: str, seasonNumber: int, waitSeconds: int = 30, maxAttempts: int = 3):
     """
-    Check the automatic search status up to max_attempts, waiting wait_seconds between each check.
-    Stops early if search_successful is no longer None.
+    Check the automatic search status up to maxAttempts, waiting waitSeconds between each check.
+    Stops early if searchSuccessful is no longer None.
     """
     seasonNumber = f"(Season {seasonNumber})" if isinstance(arr, Sonarr) else ""
     for attempt in range(0, maxAttempts):
@@ -47,7 +47,7 @@ async def checkAutomaticSearchStatus(arr, commandId: int, mediaTitle: str, seaso
             print(errorMsg, level="ERROR")
             discordError(errorMsg)
             return
-    # If we exit the loop, the status was still None after max_attempts
+    # If we exit the loop, the status was still None after maxAttempts
     print(f"Search status for {mediaTitle} {seasonNumber} still unknown after {maxAttempts*waitSeconds} seconds. Not checking anymore.", level="WARNING")
     
 def runAsyncInThread(coro):
@@ -83,7 +83,7 @@ def print(*values: object, level: str = "INFO"):
     prefix = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [{args.mode}] [{level}] "
     _print(prefix, *values)
     
-def print_section(title: str, char: str = "="):
+def printSection(title: str, char: str = "="):
     """Print a section header."""
     line = char * (len(title) + 4)
     print(line)
@@ -116,7 +116,7 @@ except Exception as e:
     exit(1)
 
 def main():
-    print_section("Starting Repair Process")
+    printSection("Starting Repair Process")
     if args.dry_run:
         print("DRY RUN: No changes will be made", level="WARNING")
     if unsafe():
@@ -133,8 +133,8 @@ def main():
     print(f"✓ Collected {len(sonarrMedia)} Sonarr items and {len(radarrMedia)} Radarr items", level="SUCCESS")
     print()
 
-    fixed_broken_items = False
-    season_pack_pending_messages = defaultdict(lambda: defaultdict(list))
+    fixedBrokenItems = False
+    seasonPackPendingMessages = defaultdict(lambda: defaultdict(list))
     
     for arr, media in intersperse(sonarrMedia, radarrMedia):
         try:
@@ -166,10 +166,10 @@ def main():
                             brokenItems.append(item.sourceTitle)
 
                 if brokenItems:
-                    fixed_broken_items = True
+                    fixedBrokenItems = True
                     msg = f"Starting repair for {media.title} (Movie ID / Season Number: {childId})"
                     msg2 = f"Found {len(brokenItems)} broken items:"
-                    print_section(msg, "-")
+                    printSection(msg, "-")
                     print(msg2)
                     [print(item) for item in brokenItems]
                     if args.dry_run or args.no_confirm or input("Do you want to delete and re-grab? (y/n): ").lower() == 'y':
@@ -198,9 +198,9 @@ def main():
                 elif args.mode == 'symlink':
                     if childId in media.fullyAvailableChildrenIds and len(parentFolders) > 1:
                         if not args.season_packs:
-                            season_pack_pending_messages[media.title][childId].extend(parentFolders)
-                        elif args.season_packs:
-                            print_section(f"Searching for season-pack for {media.title} (Season {childId})", "-")
+                            seasonPackPendingMessages[media.title][childId].extend(parentFolders)
+                        else:
+                            printSection(f"Searching for season-pack for {media.title} (Season {childId})", "-")
                             print("Non-season-pack folders:")
                             [print(path) for path in parentFolders]
                             if not args.dry_run and (args.no_confirm or input("Do you want to initiate a search for a season-pack? (y/n): ").lower() == 'y'):
@@ -220,23 +220,23 @@ def main():
             print(error_msg + e)
             discordError(error_msg, e)
             
-    if not args.season_packs and season_pack_pending_messages:
-        print_section("Non-season-pack folders")
+    if not args.season_packs and seasonPackPendingMessages:
+        printSection("Non-season-pack folders")
         print("The following media has non season-pack folders.")
         print("Run the script with --season-packs argument to upgrade to season-pack")
         print()
-        for title, childIdFolders in season_pack_pending_messages.items():
-            print_section(f"Non-season-pack folders for {title}", "-")
+        for title, childIdFolders in seasonPackPendingMessages.items():
+            printSection(f"Non-season-pack folders for {title}", "-")
             for childId, folders in childIdFolders.items():
                 if folders:
                     print(f"Season {childId} folders:")
                     print("Inside",'/'.join(folders[0].split('/')[:-1]) + '/')
                     [print('/' + folder.split('/')[-1] + '/') for folder in folders]
                     print()
-        print_section("Non-season-pack folders End")
+        printSection("Non-season-pack folders End")
 
-    msg = "Repair complete" + (" with no broken items found" if not fixed_broken_items else "")
-    print_section(msg)
+    msg = "Repair complete" + (" with no broken items found" if not fixedBrokenItems else "")
+    printSection(msg)
     discordUpdate(msg)
 
 def unsafe():
