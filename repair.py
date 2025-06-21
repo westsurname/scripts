@@ -40,13 +40,11 @@ async def checkAutomaticSearchStatus(arr, commandId: int, mediaTitle: str, media
             continue
         message = searchStatus.get("message", "")
 
-        if searchSuccessful is True:
-            if "0 reports downloaded." in message:
-                return False, message
+        if searchSuccessful and "0 reports downloaded." not in message:
             successMsg = f"Search for {mediaTitle} {mediaDescriptor} succeeded: {message}"
             print(successMsg, level="SUCCESS")
             return
-        elif searchSuccessful is False:
+        else:
             errorMsg = f"Search for {mediaTitle} {mediaDescriptor} failed: {message}"
             print(errorMsg, level="ERROR")
             discordError(errorMsg)
