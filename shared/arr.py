@@ -335,15 +335,9 @@ class Arr(ABC):
     def _automaticSearchJson(self, media: Media, childId: int):
         pass
     
-    def checkAutomaticSearchStatus(self, commandId: int):
+    def getCommandResults(self, commandId: int):
         response = retryRequest(lambda: requests.get(f"{self.host}/api/v3/command/{commandId}?apiKey={self.apiKey}"))
-        data = response.json()
-        message = data.get("message", "")
-        success = True if (status := data.get("status")) == "completed" else False if status == "failed" else None
-        
-        if success is not None:
-            return success, message
-        return None, None
+        return response.json()
     
 class Sonarr(Arr):
     host = sonarr['host']

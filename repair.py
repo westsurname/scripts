@@ -34,7 +34,12 @@ async def checkAutomaticSearchStatus(arr, commandId: int, mediaTitle: str, seaso
     seasonNumber = f"(Season {seasonNumber})" if isinstance(arr, Sonarr) else ""
     for attempt in range(0, maxAttempts):
         await asyncio.sleep(waitSeconds)
-        searchSuccessful, message = arr.checkAutomaticSearchStatus(commandId)
+        searchStatus = arr.getCommandResults(commandId)
+        
+        searchSuccessful = True if (status := searchStatus.get("status")) == "completed" else False if status == "failed" else None
+        if searchSuccessful is None:
+            continue
+        message = searchStatus.get("message", "")
 
         if searchSuccessful is True:
             if "0 reports downloaded." in message:
