@@ -305,27 +305,72 @@ async def processFile(file: TorrentFileInfo, arr: Arr, isRadarr):
             f.seek(0)
             
             torrentConstructors = []
+            torrent_instances = []
+            
+            # Build torrent constructors and instances for Real Debrid accounts
             if realdebrid['enabled']:
-                torrentConstructors.append(RealDebridTorrent if file.torrentInfo.isDotTorrentFile else RealDebridMagnet)
+                from shared.realdebrid_manager import realdebrid_manager
+                constructor = RealDebridTorrent if file.torrentInfo.isDotTorrentFile else RealDebridMagnet
+                
+                # Get healthy accounts for load balancing
+                healthy_accounts = realdebrid_manager.get_healthy_accounts()
+                if not healthy_accounts:
+                    print("No healthy Real-Debrid accounts available")
+                    discordError("No healthy Real-Debrid accounts", "All accounts are rate limited or disabled")
+                else:
+                    # Create torrent instances for each healthy account
+                    for account in healthy_accounts:
+                        torrent_instances.append((constructor, account))
+            
+            # Add TorBox if enabled (keeping existing single account logic for TorBox)
             if torbox['enabled']:
-                torrentConstructors.append(TorboxTorrent if file.torrentInfo.isDotTorrentFile else TorboxMagnet)
+                constructor = TorboxTorrent if file.torrentInfo.isDotTorrentFile else TorboxMagnet
+                torrent_instances.append((constructor, None))  # None for TorBox (no account parameter)
 
             onlyLargestFile = isRadarr or bool(re.search(r'S[\d]{2}E[\d]{2}(?![\W_][\d]{2}[\W_])', file.fileInfo.filename))
+            
             if not blackhole['failIfNotCached']:
-                torrents = [constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile) for constructor in torrentConstructors]
-                results = await asyncio.gather(*(processTorrent(torrent, file, arr) for torrent in torrents))
+                # Try all torrent instances simultaneously for fastest processing
+                torrents = []
+                for constructor, account in torrent_instances:
+                    if account is not None:  # Real Debrid
+                        torrents.append(constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile, account=account))
+                    else:  # TorBox
+                        torrents.append(constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile))
                 
-                if not any(results):
-                    await asyncio.gather(*(fail(torrent, arr, isRadarr) for torrent in torrents))
+                if torrents:
+                    results = await asyncio.gather(*(processTorrent(torrent, file, arr) for torrent in torrents))
+                    
+                    if not any(results):
+                        await asyncio.gather(*(fail(torrent, arr, isRadarr) for torrent in torrents))
+                else:
+                    print("No torrent services available")
+                    discordError("No services available", "No healthy accounts or services")
             else:
-                for i, constructor in enumerate(torrentConstructors):
-                    isLast = (i == len(torrentConstructors) - 1)
-                    torrent = constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile)
+                # Try each torrent instance sequentially until one succeeds
+                success = False
+                for i, (constructor, account) in enumerate(torrent_instances):
+                    isLast = (i == len(torrent_instances) - 1)
+                    
+                    try:
+                        if account is not None:  # Real Debrid
+                            torrent = constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile, account=account)
+                        else:  # TorBox
+                            torrent = constructor(f, fileData, file, blackhole['failIfNotCached'], onlyLargestFile)
 
-                    if await processTorrent(torrent, file, arr):
-                        break
-                    elif isLast:
-                        await fail(torrent, arr, isRadarr)
+                        if await processTorrent(torrent, file, arr):
+                            success = True
+                            break
+                        elif isLast:
+                            await fail(torrent, arr, isRadarr)
+                    except Exception as e:
+                        print(f"Error with {'Real-Debrid account ' + str(account['id']) if account else 'TorBox'}: {e}")
+                        if isLast:
+                            discordError("All services failed", str(e))
+                
+                if not torrent_instances:
+                    print("No torrent services available")
+                    discordError("No services available", "No healthy accounts or services")
 
             os.remove(file.fileInfo.filePathProcessing)
     except:
