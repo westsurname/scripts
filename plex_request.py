@@ -266,7 +266,7 @@ def all():
                     else:
                         additionalMetadata['key'] = f"/library/request/{mediaType}/{mediaTypeNum}/{guid}"
 
-                    additionalMetadata['ratingKey'] = "12065"
+                    additionalMetadata['ratingKey'] = plex['serverDefaultRatingKey']
                     additionalMetadata['librarySectionTitle'] = "Request Season :" if mediaTypeNum == mediaTypeNums['episode'] else "Request :"
                     additionalMetadata['librarySectionID'] = libraryId
                     additionalMetadata['librarySectionKey'] = f"/library/sections/{libraryId}"

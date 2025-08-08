@@ -49,6 +49,7 @@ plex = {
     'serverMovieLibraryId': env.integer('PLEX_SERVER_MOVIE_LIBRARY_ID', default=None),
     'serverTvShowLibraryId': env.integer('PLEX_SERVER_TV_SHOW_LIBRARY_ID', default=None),
     'serverPath': env.string('PLEX_SERVER_PATH', default=None),
+    'serverDefaultRatingKey': env.string('PLEX_SERVER_DEFAULT_RATING_KEY', default="12065")
 }
 
 overseerr = {
