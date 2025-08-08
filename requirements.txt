@@ -7,6 +7,8 @@ watchdog==4.0.0 #blackhole
 
 Flask-Caching==2.1.0 #plex_request
 declxml==1.1.3 #plex_request
+websockets==14.1 #plex_request
+flask-sock==0.7.0 #plex_request
 
 Werkzeug==3.0.1 #plex_authentication, blackhole
 flask==3.0.2 #plex_authentication, plex_request

@@ -20,4 +20,4 @@ RUN grep -E "#.*($SERVICE_NAME|all)" requirements.txt | awk '{print $0}' > servi
 COPY . .
 
 # Run gunicorn using Unix socket
-CMD ["gunicorn", "--bind", "unix:/app/sockets/plex_request.sock", "plex_request_wsgi:app"]
+CMD ["gunicorn", "--bind", "unix:/app/sockets/plex_request.sock", "--threads", "100", "plex_request_wsgi:app"]
