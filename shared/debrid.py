@@ -9,6 +9,7 @@ from datetime import datetime
 from shared.discord import discordUpdate
 from shared.requests import retryRequest
 from shared.shared import realdebrid, torbox, mediaExtensions, checkRequiredEnvs
+from shared.realdebrid_manager import realdebrid_manager
 
 def validateDebridEnabled():
     if not realdebrid['enabled'] and not torbox['enabled']:
@@ -158,10 +159,21 @@ class TorrentBase(ABC):
             raise Exception("Id is required. Must be acquired via successfully running submitTorrent() first.")
 
 class RealDebrid(TorrentBase):
-    def __init__(self, f, fileData, file, failIfNotCached, onlyLargestFile) -> None:
+    def __init__(self, f, fileData, file, failIfNotCached, onlyLargestFile, account=None) -> None:
         super().__init__(f, fileData, file, failIfNotCached, onlyLargestFile)
-        self.headers = {'Authorization': f'Bearer {realdebrid["apiKey"]}'}
-        self.mountTorrentsPath = realdebrid["mountTorrentsPath"]
+        
+        # Use provided account or get one from the account manager
+        self.account = account or realdebrid_manager.get_available_account()
+        if not self.account:
+            raise Exception("No available Real-Debrid accounts")
+            
+        self.headers = {'Authorization': f'Bearer {self.account["apiKey"]}'}
+        self.mountTorrentsPath = self.account["mountTorrentsPath"]
+        self.host = self.account["host"]
+        
+    def print(self, *values: object):
+        account_id = self.account.get('id', 'unknown')
+        print(f"[{datetime.now()}] [{self.__class__.__name__}] [Account {account_id}] [{self.file.fileInfo.filenameWithoutExt}]", *values)
 
     def submitTorrent(self):
         if self.failIfNotCached:
@@ -180,10 +192,14 @@ class RealDebrid(TorrentBase):
         return True
     
     def _getAvailableHost(self):
-        availableHostsRequest = retryRequest(
-            lambda: requests.get(urljoin(realdebrid['host'], "torrents/availableHosts"), headers=self.headers),
-            print=self.print
-        )
+        def make_request():
+            response = requests.get(urljoin(self.host, "torrents/availableHosts"), headers=self.headers)
+            if response.status_code == 429:  # Rate limited
+                realdebrid_manager.mark_rate_limited(self.account)
+                return None
+            return response
+            
+        availableHostsRequest = retryRequest(make_request, print=self.print)
         if availableHostsRequest is None:
             return None
 
@@ -194,10 +210,14 @@ class RealDebrid(TorrentBase):
         self._enforceId()
 
         if refresh or not self._info:
-            infoRequest = retryRequest(
-                lambda: requests.get(urljoin(realdebrid['host'], f"torrents/info/{self.id}"), headers=self.headers),
-                print=self.print
-            )
+            def make_request():
+                response = requests.get(urljoin(self.host, f"torrents/info/{self.id}"), headers=self.headers)
+                if response.status_code == 429:  # Rate limited
+                    realdebrid_manager.mark_rate_limited(self.account)
+                    return None
+                return response
+                
+            infoRequest = retryRequest(make_request, print=self.print)
             if infoRequest is None:
                 self._info = None
             else:
@@ -233,10 +253,15 @@ class RealDebrid(TorrentBase):
             discordUpdate('largest file:', largestMediaFile['path'])
                 
         files = {'files': [largestMediaFileId] if self.onlyLargestFile else ','.join(mediaFileIds)}
-        selectFilesRequest = retryRequest(
-            lambda: requests.post(urljoin(realdebrid['host'], f"torrents/selectFiles/{self.id}"), headers=self.headers, data=files),
-            print=self.print
-        )
+        
+        def make_request():
+            response = requests.post(urljoin(self.host, f"torrents/selectFiles/{self.id}"), headers=self.headers, data=files)
+            if response.status_code == 429:  # Rate limited
+                realdebrid_manager.mark_rate_limited(self.account)
+                return None
+            return response
+            
+        selectFilesRequest = retryRequest(make_request, print=self.print)
         if selectFilesRequest is None:
             return False
         
@@ -245,17 +270,20 @@ class RealDebrid(TorrentBase):
     def delete(self):
         self._enforceId()
 
-        deleteRequest = retryRequest(
-            lambda: requests.delete(urljoin(realdebrid['host'], f"torrents/delete/{self.id}"), headers=self.headers),
-            print=self.print
-        )
+        def make_request():
+            response = requests.delete(urljoin(self.host, f"torrents/delete/{self.id}"), headers=self.headers)
+            if response.status_code == 429:  # Rate limited
+                realdebrid_manager.mark_rate_limited(self.account)
+                return None
+            return response
+
+        deleteRequest = retryRequest(make_request, print=self.print)
         return not not deleteRequest
-
-
     async def getTorrentPath(self):
         filename = (await self.getInfo())['filename']
         originalFilename = (await self.getInfo())['original_filename']
 
+        # Primary search in this account's mount path
         folderPathMountFilenameTorrent = os.path.join(self.mountTorrentsPath, filename)
         folderPathMountOriginalFilenameTorrent = os.path.join(self.mountTorrentsPath, originalFilename)
         folderPathMountOriginalFilenameWithoutExtTorrent = os.path.join(self.mountTorrentsPath, os.path.splitext(originalFilename)[0])
@@ -268,7 +296,29 @@ class RealDebrid(TorrentBase):
                 os.path.exists(folderPathMountOriginalFilenameWithoutExtTorrent) and os.listdir(folderPathMountOriginalFilenameWithoutExtTorrent)):
             folderPathMountTorrent = folderPathMountOriginalFilenameWithoutExtTorrent
         else:
+            # If not found in current account, search across all healthy accounts (for cross-account access via Zurg)
             folderPathMountTorrent = None
+            healthy_accounts = realdebrid_manager.get_healthy_accounts()
+            
+            for account in healthy_accounts:
+                if account['id'] == self.account['id']:
+                    continue  # Skip current account as we already checked it
+                    
+                mount_path = account['mountTorrentsPath']
+                test_paths = [
+                    os.path.join(mount_path, filename),
+                    os.path.join(mount_path, originalFilename),
+                    os.path.join(mount_path, os.path.splitext(originalFilename)[0]) if originalFilename.endswith(('.mkv', '.mp4')) else None
+                ]
+                
+                for test_path in test_paths:
+                    if test_path and os.path.exists(test_path) and os.listdir(test_path):
+                        self.print(f'Found torrent in account {account["id"]} mount path: {test_path}')
+                        folderPathMountTorrent = test_path
+                        break
+                
+                if folderPathMountTorrent:
+                    break
 
         return folderPathMountTorrent
 
@@ -277,14 +327,18 @@ class RealDebrid(TorrentBase):
         if host is None:
             return None
 
-        request = retryRequest(
-            lambda: request(urljoin(realdebrid['host'], endpoint), params={'host': host}, headers=self.headers, data=data),
-            print=self.print
-        )
-        if request is None:
+        def make_request():
+            response = request(urljoin(self.host, endpoint), params={'host': host}, headers=self.headers, data=data)
+            if response.status_code == 429:  # Rate limited
+                realdebrid_manager.mark_rate_limited(self.account)
+                return None
+            return response
+
+        request_result = retryRequest(make_request, print=self.print)
+        if request_result is None:
             return None
 
-        response = request.json()
+        response = request_result.json()
         self.print('response info:', response)
         self.id = response['id']
 
