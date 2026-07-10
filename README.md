@@ -244,3 +244,35 @@ python3 delete_non_linked_folders.py /path/to/destination/folder --src-folder /p
 ```
 
 In this example, the script will check the "/path/to/destination/folder" directory againts the "/path/to/source/folder" directory to find directories that are not linked to. It will print the the directories that would be deleted without actually deleting them, because the --dry-run flag is set.
+
+
+## Delete Broken Links
+
+### Usage
+
+The script can be run with the following command:
+
+```bash
+python3 delete_broken_links.py
+```
+
+The script accepts the following arguments:
+
+- `dst_folder`: The destination folder to check for broken symlinks. Defaults to `BLACKHOLE_BASE_WATCH_PATH` if not provided.
+- `--mode`: Choose what to delete: `file` to delete broken symlink files, or `folder` to delete their parent directories. (default: `folder`)
+- `--dry-run`: If this flag is provided, the script will only print what would be deleted without deleting.
+- `--no-confirm`: If this flag is provided, the script will delete without asking for confirmation.
+
+### Warning
+
+This script can delete a large number of files and directories. In `folder` mode it deletes the parent directory of each broken symlink; in `file` mode it deletes the broken symlink files themselves. It is recommended to use the --dry-run flag first to see what the script will delete.
+
+### Example
+
+Here is an example of how you might use this script:
+
+```bash
+python3 delete_broken_links.py /path/to/destination/folder --mode folder --dry-run
+```
+
+In this example, the script will check the "/path/to/destination/folder" directory for broken symlinks. It will print the parent directories that would be deleted without actually deleting them, because the --dry-run flag is set.
