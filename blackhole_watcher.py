@@ -10,7 +10,7 @@ class BlackholeHandler(FileSystemEventHandler):
         self.path_name = getPath(is_radarr, create=True)
 
     def on_created(self, event):
-        if not event.is_directory and event.src_path.lower().endswith((".torrent", ".magnet")):
+        if not event.is_directory and event.src_path.lower().endswith((".torrent", ".magnet", ".nzb")):
             asyncio.run(on_created(self.is_radarr))
 
     async def on_run(self):
